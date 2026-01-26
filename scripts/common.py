@@ -250,6 +250,16 @@ def is_x64_architecture() -> bool:
     return sys.maxsize > 2**32
 
 
+
+def is_arm_architecture() -> bool:
+    """Returns True if the current machine architecture is ARM.
+
+    This helper function is used to handle ARM-specific behavior in Oppia.
+    """
+    # sys.platform returns 'aarch64' for ARM64 Linux/macOS
+    return 'aarch64' in sys.platform
+
+
 NODE_BIN_PATH = os.path.join(NODE_PATH, 'bin', 'node')
 NPX_BIN_PATH = os.path.join(NODE_PATH, 'bin', 'npx')
 
