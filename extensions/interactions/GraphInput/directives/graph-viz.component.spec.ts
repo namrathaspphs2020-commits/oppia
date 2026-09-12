@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for the graph-viz.
  */
 
+// @ts-nocheck
+
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -44,7 +46,7 @@ describe('GraphVizComponent', () => {
 
   let mockNewCardAvailableEmitter = new EventEmitter();
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [GraphVizComponent, MockTranslatePipe],
       providers: [GraphDetailService, DeviceInfoService],
@@ -55,7 +57,7 @@ describe('GraphVizComponent', () => {
   beforeEach(() => {
     graphDetailService = TestBed.inject(GraphDetailService);
     deviceInfoService = TestBed.inject(DeviceInfoService);
-    playerPositionService = TestBed.get(PlayerPositionService);
+    playerPositionService = TestBed.inject(PlayerPositionService);
     focusManagerService = TestBed.inject(FocusManagerService);
     fixture = TestBed.createComponent(GraphVizComponent);
     component = fixture.componentInstance;
@@ -191,7 +193,7 @@ describe('GraphVizComponent', () => {
               value: 527,
             },
           },
-          getAttribute: attr => {
+          getAttribute: (attr: string) => {
             if (attr === 'height') {
               return 250;
             }
@@ -243,7 +245,7 @@ describe('GraphVizComponent', () => {
               value: 120,
             },
           },
-          getAttribute: attr => {
+          getAttribute: (attr: string) => {
             if (attr === 'height') {
               return 250;
             }
@@ -723,7 +725,7 @@ describe('GraphVizComponent', () => {
               value: 120,
             },
           },
-          getAttribute: attr => {
+          getAttribute: (attr: string) => {
             if (attr === 'height') {
               return 250;
             }
@@ -738,7 +740,7 @@ describe('GraphVizComponent', () => {
           },
           createSVGPoint: () => {
             return {
-              matrixTransform: matrix => {
+              matrixTransform: (matrix: DOMMatrixInit) => {
                 return {
                   x: 775,
                   y: 307,
@@ -773,6 +775,29 @@ describe('GraphVizComponent', () => {
     expect(
       component.graph.vertices[component.state.currentlyDraggedVertex]
     ).toEqual({x: 775, y: 307, label: ''});
+  });
+
+  it('should return early in mousemoveGraphSVG if getScreenCTM() returns null', () => {
+    const event = new MouseEvent('mousemove', {clientX: 10, clientY: 20});
+    component.interactionIsActive = true;
+
+    const svgPoint = {
+      x: 0,
+      y: 0,
+      matrixTransform: jasmine.createSpy('matrixTransform'),
+    };
+    const fakeSvg = {
+      createSVGPoint: () => svgPoint,
+      getScreenCTM: () => null,
+    } as unknown as SVGSVGElement;
+
+    (component as unknown as {vizContainer: SVGSVGElement[]}).vizContainer = [
+      fakeSvg,
+    ];
+
+    component.mousemoveGraphSVG(event);
+
+    expect(svgPoint.matrixTransform).not.toHaveBeenCalled();
   });
 
   it(

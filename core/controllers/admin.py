@@ -1142,6 +1142,15 @@ class AdminHandler(
             for i, story_node_dict in enumerate(story_node_dicts):
                 generate_dummy_story_nodes(i + 1, **story_node_dict)
 
+            # Create a default arc covering all nodes.
+            node_ids = [
+                '%s%d' % (story_domain.NODE_ID_PREFIX, i + 1)
+                for i in range(len(story_node_dicts))
+            ]
+            story.story_contents.add_arc(
+                story_domain.Arc('default_arc', 'Module 1', '', node_ids)
+            )
+
             skill_services.save_new_skill(self.user_id, skill_1)
             skill_services.save_new_skill(self.user_id, skill_2)
             skill_services.save_new_skill(self.user_id, skill_3)
@@ -1188,6 +1197,16 @@ class AdminHandler(
             opportunity_services.add_new_exploration_opportunities(
                 story_id, exp_ids_in_story
             )
+            opportunity_services.create_translation_opportunity(
+                {
+                    feconf.ENTITY_TYPE_SKILL: [
+                        skill_id_1,
+                        skill_id_2,
+                        skill_id_3,
+                    ]
+                },
+                topic_ids=[topic_id_1],
+            )
 
             topic_services.publish_story(topic_id_1, story_id, self.user_id)
             topic_services.publish_topic(topic_id_1, self.user_id)
@@ -1214,6 +1233,10 @@ class AdminHandler(
                 skill_id, skill_name, '<p>Dummy Explanation 1</p>'
             )
             skill_services.save_new_skill(self.user_id, skill)
+            opportunity_services.create_translation_opportunity(
+                {feconf.ENTITY_TYPE_SKILL: [skill_id]},
+                topic_ids=['dummyTopicId'],
+            )
             for i in range(15):
                 question_id = question_services.get_new_question_id()
                 question_name = 'Question number %s %s' % (str(i), skill_name)
@@ -1340,16 +1363,16 @@ class AdminHandler(
             question_id_2 = 'dummyQuestionId2'
             question_id_3 = 'dummyQuestionId3'
 
-            initial_dummy_opportunites_generation = (
-                skill_services.does_skill_with_description_exist(
-                    'Dummy Skill 1'
-                )
-                is False
+            existing_skill = skill_fetchers.get_skill_by_id(
+                skill_id, strict=False
             )
+            initial_dummy_opportunites_generation = existing_skill is None
 
             if initial_dummy_opportunites_generation:
                 skill = self._create_dummy_skill(
-                    skill_id, 'Dummy Skill 1', '<p>Dummy Explanation 1</p>'
+                    skill_id,
+                    'Translation Opportunities Dummy Skill',
+                    '<p>Dummy Explanation for Translation Opportunities</p>',
                 )
                 question_1 = self._create_dummy_question(
                     question_id_1, 'Question 1', [skill_id]
@@ -1362,10 +1385,10 @@ class AdminHandler(
                 )
                 story = story_domain.Story.create_default_story(
                     story_id,
-                    'Dummy Story',
-                    'Description',
+                    'Translation Opportunities Dummy Story',
+                    'Dummy story for translation opportunities',
                     topic_id,
-                    'dummy-story',
+                    'translation-dummy-story',
                 )
 
                 question_services.add_question(self.user_id, question_1)
@@ -1383,9 +1406,9 @@ class AdminHandler(
                 )
                 topic = topic_domain.Topic.create_default_topic(
                     topic_id,
-                    'Dummy Topic 1',
-                    'dummy-topic-one',
-                    'description',
+                    'Translation Opportunities Dummy Topic',
+                    'trans-dummy-topic',
+                    'Dummy topic for translation opportunities',
                     'fragm',
                 )
                 topic.update_meta_tag_content('dummy-meta')
@@ -1456,6 +1479,35 @@ class AdminHandler(
             exp_services.index_explorations_given_ids(
                 exploration_ids_to_publish
             )
+
+            # Ensure the story has at least one arc before adding nodes.
+            if not initial_dummy_opportunites_generation:
+                story = story_fetchers.get_story_by_id(story_id)
+                if len(story.story_contents.arcs) == 0:
+                    existing_node_ids = [
+                        node.id for node in story.story_contents.nodes
+                    ]
+                    arc_change_list = [
+                        story_domain.StoryChange(
+                            {
+                                'cmd': 'create_arc',
+                                'arc_id': 'default_arc',
+                                'title': 'Module 1',
+                                'description': '',
+                                'node_ids': existing_node_ids,
+                            }
+                        )
+                    ]
+                    story_services.update_story(
+                        self.user_id,
+                        story_id,
+                        arc_change_list,
+                        'create default arc',
+                    )
+                    story = story_fetchers.get_story_by_id(story_id)
+                target_arc_id = story.story_contents.arcs[0].id
+            else:
+                target_arc_id = 'default_arc'
 
             def generate_dummy_story_nodes(
                 node_id: int,
@@ -1531,6 +1583,14 @@ class AdminHandler(
                                 'new_value': exp_id,
                             }
                         ),
+                        story_domain.StoryChange(
+                            {
+                                'cmd': 'move_node_to_arc',
+                                'node_id': '%s%d'
+                                % (story_domain.NODE_ID_PREFIX, node_id),
+                                'to_arc_id': target_arc_id,
+                            }
+                        ),
                     ]
                     story_services.update_story(
                         self.user_id, story_id, change_list, 'Added story node'
@@ -1569,6 +1629,15 @@ class AdminHandler(
                 )
 
             if initial_dummy_opportunites_generation:
+                # Create a default arc covering all nodes.
+                story_node_ids = [
+                    node.id for node in story.story_contents.nodes
+                ]
+                story.story_contents.add_arc(
+                    story_domain.Arc(
+                        'default_arc', 'Module 1', '', story_node_ids
+                    )
+                )
                 skill_services.save_new_skill(self.user_id, skill)
                 story_services.save_new_story(self.user_id, story)
                 topic_services.save_new_topic(self.user_id, topic)
@@ -1594,6 +1663,10 @@ class AdminHandler(
             exp_ids_in_story = exploration_ids_to_publish
             opportunity_services.add_new_exploration_opportunities(
                 story_id, exp_ids_in_story
+            )
+            opportunity_services.create_translation_opportunity(
+                {feconf.ENTITY_TYPE_SKILL: [skill_id]},
+                topic_ids=[topic_id],
             )
 
             topic_services.publish_story(topic_id, story_id, self.user_id)
@@ -1932,6 +2005,7 @@ class AdminHandler(
                 classroom_id=classroom_id_1,
                 name='math',
                 url_fragment='math',
+                feedback_recipient_email='user@email.com',
                 course_details='Math course  details',
                 teaser_text='Math teaser text',
                 topic_list_intro='Start with our first topic.',
@@ -2231,6 +2305,34 @@ class AdminHandler(
                 'thumbnail',
                 False,
             )
+            # Ensure the story has at least one arc before adding nodes.
+            updated_story = story_fetchers.get_story_by_id(story_id)
+            if len(updated_story.story_contents.arcs) == 0:
+                existing_node_ids = [
+                    node.id for node in updated_story.story_contents.nodes
+                ]
+                arc_change_list = [
+                    story_domain.StoryChange(
+                        {
+                            'cmd': 'create_arc',
+                            'arc_id': 'default_arc',
+                            'title': 'Module 1',
+                            'description': '',
+                            'node_ids': existing_node_ids,
+                        }
+                    )
+                ]
+                topic_services.update_story_and_topic_summary(
+                    self.user_id,
+                    story_id,
+                    arc_change_list,
+                    'create default arc',
+                    story.corresponding_topic_id,
+                )
+                target_arc_id = 'default_arc'
+            else:
+                target_arc_id = updated_story.story_contents.arcs[0].id
+
             new_node_ids = []
             for i, exp_id in enumerate(exp_ids_to_publish):
                 suffix = i + 1
@@ -2280,6 +2382,13 @@ class AdminHandler(
                             'old_value': 'thumbnail_bg_color',
                         }
                     ),
+                    story_domain.StoryChange(
+                        {
+                            'cmd': 'move_node_to_arc',
+                            'node_id': node_id,
+                            'to_arc_id': target_arc_id,
+                        }
+                    ),
                 ]
                 topic_services.update_story_and_topic_summary(
                     self.user_id,
@@ -2292,7 +2401,7 @@ class AdminHandler(
             # Link the generated nodes and old nodes if they exist.
             graph_change_list = []
             old_dest_ids: List[str] = []
-            updated_story = story_fetchers.get_story_by_id('story_id')
+            updated_story = story_fetchers.get_story_by_id(story_id)
             existing_node_ids = [
                 node.id
                 for node in updated_story.story_contents.nodes

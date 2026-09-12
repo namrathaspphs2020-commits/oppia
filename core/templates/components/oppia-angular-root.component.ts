@@ -16,6 +16,8 @@
  * @fileoverview The root component for angular application.
  */
 
+// @ts-nocheck
+
 /**
  * This file contains a component that "informs" the oppia-root directive that
  * angular has finished loading. This also contains services that are written
@@ -64,11 +66,14 @@
 import {
   Component,
   Output,
+  OnInit,
   AfterViewInit,
   EventEmitter,
   Injector,
   NgZone,
+  Type,
 } from '@angular/core';
+import {Direction} from '@angular/cdk/bidi';
 import {createCustomElement} from '@angular/elements';
 import {ClassroomBackendApiService} from 'domain/classroom/classroom-backend-api.service';
 import {PageContextService} from 'services/page-context.service';
@@ -79,10 +84,7 @@ import {RatingComputationService} from 'components/ratings/rating-computation/ra
 import {ReviewTestBackendApiService} from 'domain/review_test/review-test-backend-api.service';
 import {StoryViewerBackendApiService} from 'domain/story_viewer/story-viewer-backend-api.service';
 import {ServicesConstants} from 'services/services.constants';
-// Relative path used as an work around to get the angular compiler and webpack
-// build to not complain.
-// TODO(#16309): Fix relative imports.
-import '../third-party-imports/ckeditor.import';
+import 'third-party-imports/ckeditor.import';
 
 import {NoninteractiveCollapsible} from 'rich_text_components/Collapsible/directives/oppia-noninteractive-collapsible.component';
 import {NoninteractiveImage} from 'rich_text_components/Image/directives/oppia-noninteractive-image.component';
@@ -91,7 +93,10 @@ import {NoninteractiveMath} from 'rich_text_components/Math/directives/oppia-non
 import {NoninteractiveSkillreview} from 'rich_text_components/Skillreview/directives/oppia-noninteractive-skillreview.component';
 import {NoninteractiveTabs} from 'rich_text_components/Tabs/directives/oppia-noninteractive-tabs.component';
 import {NoninteractiveVideo} from 'rich_text_components/Video/directives/oppia-noninteractive-video.component';
-import {CkEditorInitializerService} from './ck-editor-helpers/ck-editor-4-widgets.initializer';
+import {
+  CkEditorInitializerService,
+  RteHelperService as RteHelperServiceLocal,
+} from './ck-editor-helpers/ck-editor-4-widgets.initializer';
 import {HtmlEscaperService} from 'services/html-escaper.service';
 import {MetaTagCustomizationService} from 'services/contextual/meta-tag-customization.service';
 import {AppConstants} from 'app.constants';
@@ -131,7 +136,13 @@ const componentMap = {
 export const registerCustomElements = (injector: Injector): void => {
   for (const rteKey of Object.keys(ServicesConstants.RTE_COMPONENT_SPECS)) {
     const rteElement = createCustomElement(
-      componentMap[rteKey].component_class,
+      (
+        componentMap as unknown as Record<
+          string,
+          // The 'unknown' type is used here because the component class can be any type.
+          {component_class: Type<unknown>}
+        >
+      )[rteKey].component_class,
       {injector}
     );
     // Check if the custom elements have been previously defined. We can't
@@ -142,14 +153,26 @@ export const registerCustomElements = (injector: Injector): void => {
     if (
       customElements.get(
         'oppia-noninteractive-ckeditor-' +
-          ServicesConstants.RTE_COMPONENT_SPECS[rteKey].frontend_id
+          (
+            ServicesConstants.RTE_COMPONENT_SPECS as unknown as Record<
+              string,
+              // The 'unknown' type is used here because the value can contain any type.
+              {frontend_id: string}
+            >
+          )[rteKey].frontend_id
       ) !== undefined
     ) {
       continue;
     }
     customElements.define(
       'oppia-noninteractive-ckeditor-' +
-        ServicesConstants.RTE_COMPONENT_SPECS[rteKey].frontend_id,
+        (
+          ServicesConstants.RTE_COMPONENT_SPECS as unknown as Record<
+            string,
+            // The 'unknown' type is used here because the value can contain any type.
+            {frontend_id: string}
+          >
+        )[rteKey].frontend_id,
       rteElement
     );
   }
@@ -159,9 +182,9 @@ export const registerCustomElements = (injector: Injector): void => {
   selector: 'oppia-angular-root',
   templateUrl: './oppia-angular-root.component.html',
 })
-export class OppiaAngularRootComponent implements AfterViewInit {
+export class OppiaAngularRootComponent implements OnInit, AfterViewInit {
   @Output() public initialized: EventEmitter<void> = new EventEmitter();
-  direction: string = 'ltr';
+  direction: Direction = 'ltr';
 
   static classroomBackendApiService: ClassroomBackendApiService;
   static pageContextService: PageContextService;
@@ -170,11 +193,13 @@ export class OppiaAngularRootComponent implements AfterViewInit {
   static pageTitleService: PageTitleService;
   static profilePageBackendApiService: ProfilePageBackendApiService;
   static rteElementsAreInitialized: boolean = false;
-  static rteHelperService;
+  // The 'unknown' type is used here because the rteHelperService can be of any type.
+  static rteHelperService: RteHelperService | unknown;
   static ratingComputationService: RatingComputationService;
   static reviewTestBackendApiService: ReviewTestBackendApiService;
   static storyViewerBackendApiService: StoryViewerBackendApiService;
-  static ajsValueProvider: (string, unknown) => void;
+  // The 'unknown' type is used here because the value can be of any type.
+  static ajsValueProvider: (key: string, value: unknown) => void;
   static injector: Injector;
 
   constructor(
@@ -203,13 +228,20 @@ export class OppiaAngularRootComponent implements AfterViewInit {
     OppiaAngularRootComponent.rteElementsAreInitialized = true;
   }
 
+  public ngOnInit(): void {
+    this.i18nService.directionChangeEventEmitter.subscribe(direction => {
+      this.direction = direction;
+    });
+    this.i18nService.initialize();
+  }
   public ngAfterViewInit(): void {
     if (!OppiaAngularRootComponent.pageContextService) {
       OppiaAngularRootComponent.pageContextService = this.pageContextService;
     }
     this.ngZone.runOutsideAngular(() => {
       CkEditorInitializerService.ckEditorInitializer(
-        OppiaAngularRootComponent.rteHelperService,
+        // The 'unknown' type is used here because the rteHelperService can be of any type.
+        OppiaAngularRootComponent.rteHelperService as unknown as RteHelperServiceLocal,
         this.htmlEscaperService,
         this.pageContextService,
         this.ngZone
@@ -279,12 +311,6 @@ export class OppiaAngularRootComponent implements AfterViewInit {
         ),
       },
     ]);
-
-    // Initialize translations.
-    this.i18nService.directionChangeEventEmitter.subscribe(direction => {
-      this.direction = direction;
-    });
-    this.i18nService.initialize();
 
     // This emit triggers ajs to start its app.
     this.initialized.emit();

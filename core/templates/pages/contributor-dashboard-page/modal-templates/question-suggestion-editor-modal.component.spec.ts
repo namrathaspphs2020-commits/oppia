@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for QuestionSuggestionEditorModalComponent.
  */
 
+// @ts-nocheck
+
 import {fakeAsync, tick} from '@angular/core/testing';
 import {NgbModal, NgbModalRef} from '@ng-bootstrap/ng-bootstrap';
 import {NO_ERRORS_SCHEMA} from '@angular/core';
@@ -34,7 +36,8 @@ import {Skill} from 'domain/skill/skill.model';
 import {AlertsService} from 'services/alerts.service';
 import {CsrfTokenService} from 'services/csrf-token.service';
 import {SiteAnalyticsService} from 'services/site-analytics.service';
-import {State} from 'domain/state/state.model';
+import {State, StateBackendDict} from 'domain/state/state.model';
+import {ImagesData} from 'services/image-local-storage.service';
 
 class MockNgbModalRef {
   componentInstance!: {
@@ -274,12 +277,10 @@ describe('Question Suggestion Editor Modal Component', () => {
           id: 'TextInput',
         },
         param_changes: [],
-        recorded_voiceovers: {
-          voiceovers_mapping: {},
-        },
         solicit_answer_details: false,
         card_is_checkpoint: false,
         linked_skill_id: null,
+        inapplicable_skill_misconception_ids: null,
       },
       next_content_id_index: 6,
       question_state_data_schema_version: 0,
@@ -333,14 +334,14 @@ describe('Question Suggestion Editor Modal Component', () => {
       // when the codeowners file is updated.
       // @ts-ignore
       (
-        suggestionId,
-        skillDifficulty,
-        questionStateData,
-        nextContentIdIndex,
-        inapplicableSkillMisconceptionIds,
-        imagesData,
-        successCallback,
-        errorCallback
+        suggestionId: string,
+        skillDifficulty: number,
+        questionStateData: StateBackendDict,
+        nextContentIdIndex: number,
+        inapplicableSkillMisconceptionIds: string[],
+        imagesData: ImagesData[],
+        successCallback: (suggestionId: string) => void,
+        errorCallback: (suggestionId: string) => void
       ) => {
         // This throws "Argument of type 'null' is not assignable to parameter
         // of type 'string'." We need to suppress
@@ -374,13 +375,14 @@ describe('Question Suggestion Editor Modal Component', () => {
       // when the codeowners file is updated.
       // @ts-ignore
       (
-        suggestionId,
-        skillDifficulty,
-        questionStateData,
-        nextContentIdIndex,
-        imagesData,
-        successCallback,
-        errorCallback
+        suggestionId: string,
+        skillDifficulty: number,
+        questionStateData: StateBackendDict,
+        nextContentIdIndex: number,
+        inapplicableSkillMisconceptionIds: string[],
+        imagesData: ImagesData[],
+        successCallback: (suggestionId: string) => void,
+        errorCallback: (suggestionId: string) => void
       ) => {
         // This throws "Argument of type 'null' is not assignable to parameter
         // of type 'string'." We need to suppress

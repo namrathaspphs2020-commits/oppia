@@ -1,8 +1,9 @@
 <div class="oppia-lesson-player-sidebar">
-  <div class="player-desktop-sidebar-menu"
+  <div *ngIf="!mobileMenuVisible"
+       class="player-desktop-sidebar-menu"
        [class.expanded]="sidebarIsExpanded">
     <div class="lesson-player-sidebar-top">
-      <button class="player-sidebar-toggle"
+      <button class="player-sidebar-toggle e2e-test-player-sidebar-toggle"
               (click)="toggleSidebar()"
               [class.expanded]="sidebarIsExpanded">
         <div *ngIf="!sidebarIsExpanded">
@@ -37,6 +38,7 @@
         </span>
       </button>
       <button class="player-sidebar-button" aria-label="Give feedback" (click)="showFeedbackModal()"
+          *ngIf="!isWebFeedbackModalFeatureFlagEnabled()"
           matTooltip="{{ 'I18N_LESSON_PLAYER_FEEDBACK_BUTTON' | translate }}"
           matTooltipPosition="above">
         <i *ngIf="!sidebarIsExpanded" class="fa fa-lg fa-comments"></i>
@@ -46,13 +48,37 @@
         </span>
       </button>
       <button class="player-sidebar-button" aria-label="Report content" (click)="showFlagExplorationModal()"
-          *ngIf="isUserLoggedIn()"
+          *ngIf="isUserLoggedIn() && !isWebFeedbackModalFeatureFlagEnabled()"
           matTooltip="{{ 'I18N_LESSON_PLAYER_REPORT_BUTTON' | translate }}"
           matTooltipPosition="above">
         <i *ngIf="!sidebarIsExpanded" class="fa fa-lg fa-flag"></i>
         <span *ngIf="sidebarIsExpanded">
           <i class="fa fa-lg fa-flag"></i>
           {{ 'I18N_LESSON_PLAYER_REPORT_BUTTON' | translate }}
+        </span>
+      </button>
+      <button class="player-sidebar-button e2e-test-lesson-desktop-report-button"
+              aria-label="Report an issue"
+              (click)="showReportAnIssueModal()"
+              *ngIf="isWebFeedbackModalFeatureFlagEnabled()"
+              matTooltip="{{ 'I18N_REPORT_LESSON_BUG_TITLE' | translate }}"
+              matTooltipPosition="above">
+        <i *ngIf="!sidebarIsExpanded" class="fa fa-lg fa-flag"></i>
+        <span *ngIf="sidebarIsExpanded">
+          <i class="fa fa-lg fa-flag"></i>
+            {{ 'I18N_REPORT_LESSON_BUG_TITLE' | translate }}
+        </span>
+      </button>
+      <button class="player-sidebar-button e2e-test-lesson-feedback-button"
+              [attr.aria-label]="'I18N_LESSON_FEEDBACK_MODAL_BUTTON' | translate"
+              (click)="showSendLessonFeedbackModal()"
+              *ngIf="isWebFeedbackModalFeatureFlagEnabled()"
+              matTooltip="{{'I18N_LESSON_FEEDBACK_MODAL_BUTTON' | translate}}"
+              matTooltipPosition="above">
+        <i *ngIf="!sidebarIsExpanded" class="fa fa-lg fa-comments"></i>
+        <span *ngIf="sidebarIsExpanded">
+          <i class="fa fa-lg fa-comments"></i>
+            {{'I18N_LESSON_FEEDBACK_MODAL_BUTTON' | translate}}
         </span>
       </button>
     </div>
@@ -71,11 +97,25 @@
           <i class="fa fa-lg fa-share-alt"></i>
           {{ 'I18N_SHARE_LESSON' | translate }}
         </button>
-        <button (click)="showFeedbackModal()">
+        <button class="e2e-test-lesson-mobile-report-button"
+                (click)="showReportAnIssueModal()"
+                *ngIf="isWebFeedbackModalFeatureFlagEnabled()">
+          <i class="fa fa-lg fa-flag"></i>
+          {{ 'I18N_REPORT_LESSON_BUG_TITLE' | translate }}
+        </button>
+        <button class="e2e-test-lesson-feedback-button"
+                (click)="showSendLessonFeedbackModal()"
+                *ngIf="isWebFeedbackModalFeatureFlagEnabled()">
+          <i class="fa fa-lg fa-comments"></i>
+          {{'I18N_LESSON_FEEDBACK_MODAL_BUTTON' | translate}}
+        </button>
+        <button (click)="showFeedbackModal()"
+                *ngIf="!isWebFeedbackModalFeatureFlagEnabled()">
           <i class="fa fa-lg fa-comments"></i>
           {{ 'I18N_LESSON_PLAYER_FEEDBACK_BUTTON' | translate }}
         </button>
-        <button (click)="showFlagExplorationModal()">
+        <button (click)="showFlagExplorationModal()"
+                *ngIf="!isWebFeedbackModalFeatureFlagEnabled()">
           <i class="fa fa-lg fa-flag"></i>
           {{ 'I18N_LESSON_PLAYER_REPORT_BUTTON' | translate }}
         </button>

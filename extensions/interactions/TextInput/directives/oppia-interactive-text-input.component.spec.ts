@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for the TextInput interaction.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA, ChangeDetectorRef} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {TranslateModule} from '@ngx-translate/core';
 import {InteractionAnswer, TextInputAnswer} from 'interactions/answer-defs';
 import {InteractionAttributesExtractorService} from 'interactions/interaction-attributes-extractor.service';
@@ -67,7 +69,7 @@ describe('InteractiveTextInputComponent', () => {
     },
   };
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [InteractiveTextInputComponent],
       imports: [

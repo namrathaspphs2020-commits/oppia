@@ -41,15 +41,18 @@ import {
 
 import {BeamJobRun} from 'domain/jobs/beam-job-run.model';
 import {BeamJob} from 'domain/jobs/beam-job.model';
+
 import {CancelBeamJobDialogComponent} from 'pages/release-coordinator-page/components/cancel-beam-job-dialog.component';
 import {StartNewBeamJobDialogComponent} from 'pages/release-coordinator-page/components/start-new-beam-job-dialog.component';
 import {ViewBeamJobOutputDialogComponent} from 'pages/release-coordinator-page/components/view-beam-job-output-dialog.component';
 import {ReleaseCoordinatorBackendApiService} from 'pages/release-coordinator-page/services/release-coordinator-backend-api.service';
 import {AlertsService} from 'services/alerts.service';
+import './beam-jobs-tab.component.css';
 
 @Component({
   selector: 'oppia-beam-jobs-tab',
   templateUrl: './beam-jobs-tab.component.html',
+  styleUrls: ['./beam-jobs-tab.component.css'],
 })
 export class BeamJobsTabComponent implements OnInit, OnDestroy {
   static readonly BEAM_JOB_RUNS_REFRESH_INTERVAL_MSECS = 15000;

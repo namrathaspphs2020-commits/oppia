@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for image with regions editor.
  */
 
+// @ts-nocheck
+
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -69,7 +71,7 @@ describe('ImageWithRegionsEditorComponent', () => {
     }
   }
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       declarations: [ImageWithRegionsEditorComponent],

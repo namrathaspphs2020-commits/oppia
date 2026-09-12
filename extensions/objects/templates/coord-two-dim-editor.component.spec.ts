@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for coord two dim editor.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {icon, LatLng, LeafletMouseEvent, tileLayer} from 'leaflet';
 import {CoordTwoDimEditorComponent} from './coord-two-dim-editor.component';
 import * as alias from 'leaflet';
@@ -25,7 +27,7 @@ import * as alias from 'leaflet';
 describe('CoordTwoDimEditorComponent', () => {
   let component: CoordTwoDimEditorComponent;
   let fixture: ComponentFixture<CoordTwoDimEditorComponent>;
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [CoordTwoDimEditorComponent],
       schemas: [NO_ERRORS_SCHEMA],

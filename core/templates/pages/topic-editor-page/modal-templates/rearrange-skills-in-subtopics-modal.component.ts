@@ -33,23 +33,25 @@ import {
   transferArrayItem,
 } from '@angular/cdk/drag-drop';
 import {AppConstants} from 'app.constants';
+import './rearrange-skills-in-subtopics-modal.component.css';
 
 @Component({
   selector: 'oppia-rearrange-skills-in-subtopics-modal',
   templateUrl: './rearrange-skills-in-subtopics-modal.component.html',
+  styleUrls: ['./rearrange-skills-in-subtopics-modal.component.css'],
 })
 export class RearrangeSkillsInSubtopicsModalComponent
   extends ConfirmOrCancelModal
   implements OnInit, OnDestroy
 {
-  topic: Topic;
-  subtopics: Subtopic[];
-  uncategorizedSkillSummaries: ShortSkillSummary[];
-  skillSummaryToMove: ShortSkillSummary;
+  topic!: Topic;
+  subtopics!: Subtopic[];
+  uncategorizedSkillSummaries!: ShortSkillSummary[];
+  skillSummaryToMove!: ShortSkillSummary;
   oldSubtopicId: number | null = null;
-  errorMsg: string;
-  editableName: string;
-  selectedSubtopicId: number;
+  errorMsg!: string;
+  editableName!: string;
+  selectedSubtopicId!: number | null;
   maxCharsInSubtopicTitle: number = AppConstants.MAX_CHARS_IN_SUBTOPIC_TITLE;
 
   SKILL_EDITOR_URL_TEMPLATE = '/skill_editor/<skillId>';
@@ -118,17 +120,18 @@ export class RearrangeSkillsInSubtopicsModalComponent
         event.previousIndex,
         event.currentIndex
       );
+
       if (newSubtopicId === this.oldSubtopicId) {
         return;
       }
 
-      if (newSubtopicId === null) {
+      if (newSubtopicId === null && this.oldSubtopicId !== null) {
         this.topicUpdateService.removeSkillFromSubtopic(
           this.topic,
           this.oldSubtopicId,
           this.skillSummaryToMove
         );
-      } else {
+      } else if (newSubtopicId !== null) {
         this.topicUpdateService.moveSkillToSubtopic(
           this.topic,
           this.oldSubtopicId,
@@ -137,6 +140,7 @@ export class RearrangeSkillsInSubtopicsModalComponent
         );
       }
     }
+
     this.initEditor();
   }
 
@@ -156,11 +160,13 @@ export class RearrangeSkillsInSubtopicsModalComponent
     this.editNameOfSubtopicWithId(null);
   }
 
-  editNameOfSubtopicWithId(subtopicId: number): void {
-    if (!subtopicId) {
+  editNameOfSubtopicWithId(subtopicId: number | null): void {
+    if (subtopicId === null) {
       this.editableName = '';
+      this.selectedSubtopicId = null;
+    } else {
+      this.selectedSubtopicId = subtopicId;
     }
-    this.selectedSubtopicId = subtopicId;
   }
 
   isSkillDeleted(skillSummary: ShortSkillSummary): boolean {

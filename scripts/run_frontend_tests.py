@@ -90,6 +90,14 @@ def get_file_spec(file_path: str) -> str | None:
         str | None. The path of the spec file if it exists, otherwise None.
         If the file is not a TypeScript or JavaScript file, None is returned.
     """
+    normalized_file_path = file_path.replace('\\', '/')
+    if normalized_file_path.startswith(
+        'core/tests/puppeteer-acceptance-tests/'
+    ) or normalized_file_path.startswith(
+        'core/tests/playwright-acceptance-tests/'
+    ):
+        return None
+
     if file_path.endswith(
         ('.spec.ts', '.spec.js', 'Spec.js')
     ) and os.path.exists(file_path):
@@ -121,11 +129,18 @@ def main(args: Optional[Sequence[str]] = None) -> None:
 
     cmd = [
         common.NODE_BIN_PATH,
-        '--max-old-space-size=4096',
-        os.path.join(common.NODE_MODULES_PATH, 'karma', 'bin', 'karma'),
-        'start',
-        os.path.join('core', 'tests', 'karma.conf.ts'),
+        '--max-old-space-size=5120',
+        os.path.join(common.NODE_MODULES_PATH, '@angular', 'cli', 'bin', 'ng'),
+        'test',
+        '--karma-config=core/tests/karma.conf.ts',
+        '--watch=false',
     ]
+
+    # The Angular CLI does not automatically instrument the codebase for
+    # code coverage during testing (unlike the old Webpack istanbul-instrumenter-loader).
+    # We must explicitly pass the --code-coverage flag to Angular CLI to generate the report.
+    if parsed_args.check_coverage:
+        cmd.append('--code-coverage')
 
     specs_to_run: Set[str] = set()
     if parsed_args.specs_to_run:
@@ -171,19 +186,37 @@ def main(args: Optional[Sequence[str]] = None) -> None:
 
     if specs_to_run:
         print('Running the following specs:', specs_to_run)
-        cmd.append('--specs_to_run=%s' % ','.join(sorted(specs_to_run)))
+        for spec in sorted(specs_to_run):
+            # The Angular CLI's findTests() resolves --include patterns
+            # relative to dirname(main), which is core/templates/. Files
+            # under core/templates/ are found automatically (the prefix is
+            # stripped by findTests). Files outside that directory need a
+            # ../../ prefix to navigate back to the workspace root.
+            if spec.startswith('core/templates/'):
+                cmd.append('--include=%s' % spec)
+            else:
+                cmd.append('--include=../../%s' % spec)
 
     if parsed_args.run_minified_tests:
         print('Running test in production environment')
 
-        build.main(args=['--prod_env', '--minify_third_party_libs_only'])
+        # Skip the Angular ng build (--skip_ng_build) because karma tests
+        # use their own compilation pipeline and do not consume the Angular
+        # dist output. Omitting it saves ~10 minutes per invocation, keeping
+        # CI overhead on par with the previous minify-third-party-only approach.
+        build.main(args=['--prod_env', '--skip_ng_build'])
 
-        cmd.append('--prodEnv')
+        # --configuration=production requires a matching
+        # `configurations.production` block in angular.json's test target.
+        # That block performs a fileReplacements swap
+        # (environment.ts → environment.prod.ts), mirroring the build
+        # target's existing production config.
+        cmd.append('--configuration=production')
     else:
         build.main(args=[])
 
     if parsed_args.verbose:
-        cmd.append('--terminalEnabled')
+        os.environ['KARMA_TERMINAL_ENABLED'] = 'true'
 
     for attempt in range(MAX_ATTEMPTS):
         print(f'Attempt {attempt + 1} of {MAX_ATTEMPTS}')

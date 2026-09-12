@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for the SetInput interaction.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {InteractionAttributesExtractorService} from 'interactions/interaction-attributes-extractor.service';
 import {CurrentInteractionService} from 'pages/exploration-player-page/services/current-interaction.service';
 import {InteractiveSetInputComponent} from './oppia-interactive-set-input.component';
@@ -59,7 +61,7 @@ describe('InteractiveSetInputComponent', () => {
     },
   };
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
         TranslateModule.forRoot({

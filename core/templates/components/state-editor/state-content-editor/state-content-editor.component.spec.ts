@@ -27,7 +27,9 @@ import {SubtitledHtml} from 'domain/exploration/subtitled-html.model';
 
 import {ChangeListService} from 'pages/exploration-editor-page/services/change-list.service';
 import {ExternalSaveService} from 'services/external-save.service';
+import {ExternalRteSaveService} from 'services/external-rte-save.service';
 import {StateContentService} from 'components/state-editor/state-editor-properties-services/state-content.service';
+import {MathFormulaDetectionService} from 'services/math-formula-detection.service';
 import cloneDeep from 'lodash/cloneDeep';
 
 describe('StateHintsEditorComponent', () => {
@@ -35,6 +37,7 @@ describe('StateHintsEditorComponent', () => {
   let fixture: ComponentFixture<StateContentEditorComponent>;
   let changeListService: ChangeListService;
   let externalSaveService: ExternalSaveService;
+  let externalRteSaveService: ExternalRteSaveService;
   let stateContentService: StateContentService;
 
   let _getContent = function (contentId: string, contentString: string) {
@@ -59,6 +62,7 @@ describe('StateHintsEditorComponent', () => {
 
     changeListService = TestBed.inject(ChangeListService);
     externalSaveService = TestBed.inject(ExternalSaveService);
+    externalRteSaveService = TestBed.inject(ExternalRteSaveService);
     stateContentService = TestBed.inject(StateContentService);
 
     fixture.detectChanges();
@@ -162,6 +166,14 @@ describe('StateHintsEditorComponent', () => {
     expect(component.saveStateContent.emit).toHaveBeenCalled();
   });
 
+  it('should emit onExternalRteSave before saving content', function () {
+    spyOn(externalRteSaveService.onExternalRteSave, 'emit');
+
+    component.onSaveContentButtonClicked();
+
+    expect(externalRteSaveService.onExternalRteSave.emit).toHaveBeenCalled();
+  });
+
   it('should update when card height limit is reached', () => {
     component.cardHeightLimitReached = false;
     spyOn(component, 'isCardHeightLimitReached').and.returnValue(
@@ -180,5 +192,27 @@ describe('StateHintsEditorComponent', () => {
     const result = component.isCardHeightLimitReached();
 
     expect(result).toBeFalse();
+  });
+
+  describe('isFormulaAsText', () => {
+    it('should call mathFormulaDetectionService', () => {
+      const mathService = TestBed.inject(MathFormulaDetectionService);
+      spyOn(mathService, 'isFormulaAsText').and.returnValue(true);
+
+      const result = component.isFormulaAsText('1+1=2');
+
+      expect(mathService.isFormulaAsText).toHaveBeenCalledWith('1+1=2');
+      expect(result).toBeTrue();
+    });
+  });
+
+  describe('toggleMathWarning', () => {
+    it('should toggle mathWarningIsMinimized', () => {
+      expect(component.mathWarningIsMinimized).toBeFalse();
+      component.toggleMathWarning();
+      expect(component.mathWarningIsMinimized).toBeTrue();
+      component.toggleMathWarning();
+      expect(component.mathWarningIsMinimized).toBeFalse();
+    });
   });
 });

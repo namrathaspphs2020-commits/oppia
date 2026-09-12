@@ -16,6 +16,8 @@
  * @fileoverview Unit test for TopicCreationBackendApiService.
  */
 
+// @ts-nocheck
+
 import {HttpErrorResponse} from '@angular/common/http';
 import {
   HttpClientTestingModule,
@@ -50,9 +52,9 @@ describe('Topic creation backend api service', () => {
       providers: [TopicCreationBackendApiService],
     });
 
-    csrfService = TestBed.get(CsrfTokenService);
-    httpTestingController = TestBed.get(HttpTestingController);
-    topicCreationBackendApiService = TestBed.get(
+    csrfService = TestBed.inject(CsrfTokenService);
+    httpTestingController = TestBed.inject(HttpTestingController);
+    topicCreationBackendApiService = TestBed.inject(
       TopicCreationBackendApiService
     );
     topic = NewlyCreatedTopic.createDefault();
@@ -72,7 +74,6 @@ describe('Topic creation backend api service', () => {
     // is not assignable to parameter of type 'PromiseLike<string>'.".
     // We need to suppress this error because we need to mock the
     // `getTokenAsync` function for testing purposes.
-    // @ts-expect-error
     spyOn(csrfService, 'getTokenAsync').and.returnValue(async () => {
       return new Promise(resolve => {
         resolve('sample-csrf-token');

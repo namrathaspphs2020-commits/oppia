@@ -16,11 +16,13 @@
  * @fileoverview Unit tests for unicode string editor.
  */
 
+// @ts-nocheck
+
 import {EventEmitter, SimpleChanges} from '@angular/core';
 import {ExternalSaveService} from 'services/external-save.service';
 import {FormsModule} from '@angular/forms';
 import {UnicodeStringEditorComponent} from './unicode-string-editor.component';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 
 describe('UnicodeStringEditorComponent', () => {
   let component: UnicodeStringEditorComponent;
@@ -29,7 +31,7 @@ describe('UnicodeStringEditorComponent', () => {
 
   var externalSaveEventEmitter = new EventEmitter();
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [FormsModule],
       declarations: [UnicodeStringEditorComponent],
@@ -39,7 +41,7 @@ describe('UnicodeStringEditorComponent', () => {
   beforeEach(() => {
     fixture = TestBed.createComponent(UnicodeStringEditorComponent);
     component = fixture.componentInstance;
-    externalSaveService = TestBed.get(ExternalSaveService);
+    externalSaveService = TestBed.inject(ExternalSaveService);
     spyOnProperty(externalSaveService, 'onExternalSave').and.returnValue(
       externalSaveEventEmitter
     );

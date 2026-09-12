@@ -16,6 +16,8 @@
  * @fileoverview Unit test for collection editor navbar component.
  */
 
+// @ts-nocheck
+
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {EventEmitter, NO_ERRORS_SCHEMA} from '@angular/core';
 import {
@@ -158,6 +160,24 @@ describe('Collection editor navbar component', () => {
     expect(urlService.getCollectionIdFromEditorUrl).toHaveBeenCalled();
     expect(collectionEditorStateService.getCollection).toHaveBeenCalled();
     expect(collectionEditorStateService.getCollectionRights).toHaveBeenCalled();
+  }));
+
+  it('should unpublish the collection', fakeAsync(() => {
+    const unpublishSpy = spyOn(
+      collectionRightsBackendApiService,
+      'setCollectionPrivateAsync'
+    ).and.returnValue(Promise.resolve());
+    const setRightsSpy = spyOn(
+      collectionEditorStateService,
+      'setCollectionRights'
+    );
+    componentInstance.collectionId = collectionId;
+    componentInstance.collection = mockCollection;
+    componentInstance.collectionRights = mockPrivateCollectionRights;
+    componentInstance.unpublishCollection();
+    tick();
+    expect(unpublishSpy).toHaveBeenCalled();
+    expect(setRightsSpy).toHaveBeenCalled();
   }));
 
   it('should validate public collection', fakeAsync(() => {

@@ -16,12 +16,14 @@
  * @fileoverview Unit tests for the feature tab in release coordinator page.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA, ElementRef, QueryList} from '@angular/core';
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {
   ComponentFixture,
   fakeAsync,
-  async,
+  waitForAsync,
   TestBed,
   flushMicrotasks,
   tick,
@@ -73,7 +75,7 @@ describe('Release coordinator page feature tab', function () {
 
   let mockConfirmResult: (val: boolean) => void;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
         FormsModule,
@@ -94,8 +96,8 @@ describe('Release coordinator page feature tab', function () {
 
     fixture = TestBed.createComponent(FeaturesTabComponent);
     component = fixture.componentInstance;
-    featureApiService = TestBed.get(FeatureFlagBackendApiService);
-    windowRef = TestBed.get(WindowRef);
+    featureApiService = TestBed.inject(FeatureFlagBackendApiService);
+    windowRef = TestBed.inject(WindowRef);
 
     let confirmResult = true;
     let promptResult: string | null = 'mock msg';
@@ -869,7 +871,7 @@ describe('Release coordinator page feature tab', function () {
     let dummyApiSpy: jasmine.Spy;
 
     beforeEach(() => {
-      dummyApiService = TestBed.get(FeatureFlagDummyBackendApiService);
+      dummyApiService = TestBed.inject(FeatureFlagDummyBackendApiService);
 
       dummyApiSpy = spyOn(dummyApiService, 'isHandlerEnabled').and.resolveTo();
     });

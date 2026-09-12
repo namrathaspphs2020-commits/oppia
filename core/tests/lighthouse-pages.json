@@ -43,10 +43,6 @@
     "url": "http://localhost:8181/donate",
     "page_module": "core/templates/pages/donate-page/donate-page.module.ts"
   },
-  "email-dashboard": {
-    "url": "http://localhost:8181/emaildashboard",
-    "page_module": "core/templates/pages/email-dashboard-page/email-dashboard-page.module.ts"
-  },
   "get-started": {
     "url": "http://localhost:8181/get-started",
     "page_module": "core/templates/pages/get-started-page/get-started-page.module.ts"
@@ -117,7 +113,7 @@
   },
   "exploration-player": {
     "url": "http://localhost:8181/explore/{{exploration_id}}",
-    "page_module": "core/templates/pages/exploration-player-page/exploration-player-page.module.ts"
+    "page_module": "core/templates/pages/exploration-player-page/current-lesson-player/exploration-player-page.module.ts"
   },
   "topic-editor": {
     "url": "http://localhost:8181/topic_editor/{{topic_id}}",

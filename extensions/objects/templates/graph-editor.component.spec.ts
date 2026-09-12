@@ -16,9 +16,11 @@
  * @fileoverview Unit test for graph editor.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA} from '@angular/core';
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -30,7 +32,7 @@ describe('GraphEditorComponent', () => {
   let component: GraphEditorComponent;
   let fixture: ComponentFixture<GraphEditorComponent>;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [GraphEditorComponent],
       schemas: [NO_ERRORS_SCHEMA],

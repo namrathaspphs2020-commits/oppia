@@ -28,12 +28,15 @@ import {
 import {PageContextService} from 'services/page-context.service';
 import {EditabilityService} from 'services/editability.service';
 import {EditorFirstTimeEventsService} from 'pages/exploration-editor-page/services/editor-first-time-events.service';
+import {MathFormulaDetectionService} from 'services/math-formula-detection.service';
 import {ExternalSaveService} from 'services/external-save.service';
+import {ExternalRteSaveService} from 'services/external-rte-save.service';
 import {StateContentService} from 'components/state-editor/state-editor-properties-services/state-content.service';
 import {StateEditorService} from 'components/state-editor/state-editor-properties-services/state-editor.service';
 
 import {SubtitledHtml} from 'domain/exploration/subtitled-html.model';
 import {Subscription} from 'rxjs';
+import './state-content-editor.component.css';
 
 interface HTMLSchema {
   type: string;
@@ -46,6 +49,7 @@ interface HTMLSchema {
 @Component({
   selector: 'oppia-state-content-editor',
   templateUrl: './state-content-editor.component.html',
+  styleUrls: ['./state-content-editor.component.css'],
 })
 export class StateContentEditorComponent implements OnInit {
   @Output() intialize: EventEmitter<void> = new EventEmitter();
@@ -54,6 +58,7 @@ export class StateContentEditorComponent implements OnInit {
   @Input() stateContentPlaceholder!: string;
   @Input() stateContentSaveButtonPlaceholder!: string;
   cardHeightLimitWarningIsShown!: boolean;
+  mathWarningIsMinimized: boolean = false;
   contentId!: string | null;
   contentEditorIsOpen: boolean = false;
   directiveSubscriptions = new Subscription();
@@ -67,6 +72,8 @@ export class StateContentEditorComponent implements OnInit {
     private pageContextService: PageContextService,
     private editorFirstTimeEventsService: EditorFirstTimeEventsService,
     private externalSaveService: ExternalSaveService,
+    private mathFormulaDetectionService: MathFormulaDetectionService,
+    private externalRteSaveService: ExternalRteSaveService,
     public stateContentService: StateContentService,
     private stateEditorService: StateEditorService,
     private editabilityService: EditabilityService
@@ -137,8 +144,17 @@ export class StateContentEditorComponent implements OnInit {
     this.contentEditorIsOpen = true;
   }
 
+  isFormulaAsText(htmlString: string | string[]): boolean {
+    return this.mathFormulaDetectionService.isFormulaAsText(htmlString);
+  }
+
+  toggleMathWarning(): void {
+    this.mathWarningIsMinimized = !this.mathWarningIsMinimized;
+  }
+
   onSaveContentButtonClicked(): void {
     this.editorFirstTimeEventsService.registerFirstSaveContentEvent();
+    this.externalRteSaveService.onExternalRteSave.emit();
     this.saveContent();
   }
 

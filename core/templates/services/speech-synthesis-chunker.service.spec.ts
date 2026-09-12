@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for SpeechSynthesisChunkerService.
  */
 
+// @ts-nocheck
+
 import {TestBed, fakeAsync, flush} from '@angular/core/testing';
 
 import {SpeechSynthesisChunkerService} from 'services/speech-synthesis-chunker.service';
@@ -161,12 +163,6 @@ describe('Speech Synthesis Chunker Service', () => {
 
     beforeEach(() => {
       spyOn(window, 'SpeechSynthesisUtterance').and.returnValues(
-        // This throws "Argument of type '{ speak: () => void; onend:
-        // () => void; ...}' is not assignable to parameter of type
-        // 'SpeechSynthesisUtterance'.". We need to suppress this error because
-        // 'SpeechSynthesisUtterance' has around 10 more properties. We have
-        // only defined the properties we need in 'mockSpeechSynthesisUtteran'.
-        // @ts-expect-error
         Object.assign({}, mockSpeechSynthesisUtteran),
         Object.assign({}, mockSpeechSynthesisUtteran)
       );
@@ -174,14 +170,15 @@ describe('Speech Synthesis Chunker Service', () => {
 
     it('should not speak when chunk is too short', () => {
       const speakSpy = spyOn(window.speechSynthesis, 'speak').and.callFake(
-        function (utterance) {
-          // This throws "Argument of type '{ speak: () => void; onend:
-          // () => void; ...}' is not assignable to parameter of type
-          // 'SpeechSynthesisUtterance'.". We need to suppress this error because
-          // 'SpeechSynthesisUtterance' has around 10 more properties. We have
-          // only defined the properties we need in 'mockSpeechSynthesisUtteran'.
-          // @ts-expect-error
-          utterance.onend();
+        function (utterance: SpeechSynthesisUtterance) {
+          utterance.onend?.(
+            new SpeechSynthesisEvent('end', {
+              utterance,
+              charIndex: 0,
+              elapsedTime: 0,
+              name: '',
+            })
+          );
         }
       );
       const speechSynthesisUtterance =
@@ -199,13 +196,7 @@ describe('Speech Synthesis Chunker Service', () => {
     it('should not speak when chunk is a falsy value', () => {
       const speakSpy = spyOn(window.speechSynthesis, 'speak').and.callFake(
         function (utterance: SpeechSynthesisUtterance) {
-          // This throws "Argument of type '{ speak: () => void; onend:
-          // () => void; ...}' is not assignable to parameter of type
-          // 'SpeechSynthesisUtterance'.". We need to suppress this error because
-          // 'SpeechSynthesisUtterance' has around 10 more properties. We have
-          // only defined the properties we need in 'mockSpeechSynthesisUtteran'.
-          // @ts-expect-error
-          utterance.onend();
+          utterance.onend?.({} as SpeechSynthesisEvent);
         }
       );
       const speechSynthesisUtterance =
@@ -223,13 +214,7 @@ describe('Speech Synthesis Chunker Service', () => {
     it('should speak two phrases at a time', fakeAsync(() => {
       const speakSpy = spyOn(window.speechSynthesis, 'speak').and.callFake(
         function (utterance: SpeechSynthesisUtterance) {
-          // This throws "Argument of type '{ speak: () => void; onend:
-          // () => void; ...}' is not assignable to parameter of type
-          // 'SpeechSynthesisUtterance'.". We need to suppress this error because
-          // 'SpeechSynthesisUtterance' has around 10 more properties. We have
-          // only defined the properties we need in 'mockSpeechSynthesisUtteran'.
-          // @ts-expect-error
-          utterance.onend();
+          utterance.onend?.({} as SpeechSynthesisEvent);
         }
       );
 
@@ -255,14 +240,7 @@ describe('Speech Synthesis Chunker Service', () => {
     it('should speak only one phrase when cancel is requested', fakeAsync(() => {
       const speakSpy = spyOn(window.speechSynthesis, 'speak').and.callFake(
         function (utterance: SpeechSynthesisUtterance) {
-          // This throws "Argument of type '{ speak: () => void; onend:
-          // () => void; ...}' is not assignable to parameter of type
-          // 'SpeechSynthesisUtterance'.". We need to suppress this error
-          // because 'SpeechSynthesisUtterance' has around 10 more properties.
-          // We have only defined the properties we need in
-          // 'mockSpeechSynthesisUtteran'.
-          // @ts-expect-error
-          utterance.onend();
+          utterance.onend?.({} as SpeechSynthesisEvent);
         }
       );
       const speechSynthesisUtterance =

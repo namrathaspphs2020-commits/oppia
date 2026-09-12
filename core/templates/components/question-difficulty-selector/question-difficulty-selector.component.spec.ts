@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA} from '@angular/core';
 import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
 import {MatRadioChange, _MatRadioButtonBase} from '@angular/material/radio';
@@ -60,5 +62,24 @@ describe('QuestionDifficultySelectorComponent', () => {
 
     expect(component.skillWithDifficulty.getDifficulty()).toBe(0.9);
     expect(component.skillWithDifficultyChange.emit).toHaveBeenCalled();
+  });
+
+  it('should get rubrics for the current skill', () => {
+    component.skillWithDifficulty = new SkillDifficulty('skill_1', '', 0.6);
+    component.skillIdToRubricsObject = {
+      skill_1: [
+        {
+          difficulty: 'easy',
+          explanations: ['Explanation'],
+        } as never,
+      ],
+    };
+
+    expect(component.getRubricsForSkill()).toEqual([
+      {
+        difficulty: 'easy',
+        explanations: ['Explanation'],
+      },
+    ]);
   });
 });

@@ -32,6 +32,8 @@ expect.extend({toMatchImageSnapshot});
 const backgroundBanner = '.oppia-background-image';
 const libraryBanner = '.e2e-test-library-banner';
 
+const cookieBannerAcceptButtonSelector =
+  'button.e2e-test-oppia-cookie-banner-accept-button';
 const commonModalTitleSelector = '.e2e-test-modal-header';
 const commonModalBodySelector = '.e2e-test-modal-body';
 const commonModalConfirmBtnSelector = '.e2e-test-confirm-action-button';
@@ -44,9 +46,12 @@ const warningToastMessageSelector = '.e2e-test-toast-warning-message';
 const warningToastCloseButtonSelector = '.e2e-test-close-toast-warning';
 const oskContainerSelector = '.e2e-test-osk-container';
 const hideOSKButtonSelector = '.e2e-test-osk-hide-button';
-
+const plannedPublicationDateInput = '.e2e-test-planned-publication-date-input';
+const chapterTitleSelector = '.e2e-test-chapter-title';
 const VIEWPORT_WIDTH_BREAKPOINTS = testConstants.ViewportWidthBreakpoints;
 const baseURL = testConstants.URLs.BaseURL;
+const usernameSelector = 'input.e2e-test-username-input';
+const termsCheckboxSelector = 'input.e2e-test-agree-to-terms-checkbox';
 
 const LABEL_FOR_SUBMIT_BUTTON = 'Submit and start contributing';
 /** We accept the empty message because this is what is sent on
@@ -59,17 +64,6 @@ const acceptedBrowserAlerts = [
   'This action is irreversible. Are you sure?',
   'This action is irreversible. If you insist to proceed, please enter the commit message for the update',
 ];
-
-interface ClickDetails {
-  position: {x: number; y: number};
-  timeInMilliseconds: number;
-}
-
-declare global {
-  interface Window {
-    logClick: (clickDetails: ClickDetails) => void;
-  }
-}
 
 export type ModalUserInteractions = (
   _this: BaseUser,
@@ -86,6 +80,7 @@ export class BaseUser {
   startTimeInMilliseconds: number = -1;
   screenRecorder!: PuppeteerScreenRecorder;
   static instances: BaseUser[] = []; // Track instances.
+  static serverErrors: string[] = []; // Track server errors.
 
   constructor() {
     BaseUser.instances.push(this);
@@ -108,7 +103,11 @@ export class BaseUser {
      * tests to fail while running in non headless mode (see
      * https://github.com/puppeteer/puppeteer/issues/7050).
      */
-    if (!headless) {
+    const skipSiteIsolationWorkaround = [
+      'logged-out-learner/submit-a-platform-defect-report-from-a-non-lesson-page',
+      'logged-out-learner/submit-anonymous-feedback-or-a-report-a-lesson-issue',
+    ].includes(specName ?? '');
+    if (!headless && !skipSiteIsolationWorkaround) {
       args.push('--disable-site-isolation-trials');
     }
 
@@ -131,6 +130,7 @@ export class BaseUser {
           TestToModulesMatcher.registerPuppeteerBrowser(browser);
         }
         this.page = await browser.newPage();
+        this.attachNavigationLogs(this.page);
         this.pages.push(this.page);
 
         if (mobile) {
@@ -260,15 +260,27 @@ export class BaseUser {
 
     // Prepare an array of promises for screenshots.
     const screenshotPromises = BaseUser.instances.map(async (instance, i) => {
-      if (instance.page) {
-        await instance.page.screenshot({
-          path: path.join(
-            outputDir,
-            outputFileName + randomString + `-instance-${i}.png`
-          ),
-        });
+      if (!instance.page) {
+        return;
+      }
+      if (instance.page.isClosed()) {
         showMessage(
-          `Screenshot captured for test failure and saved as : ${path.join(outputDir, outputFileName + `-instance-${i}.png`)}`
+          `Skipped screenshot for ${instance.username ?? 'unknown user'} because the page is already closed.`
+        );
+        return;
+      }
+      try {
+        const screenshotPath = path.join(
+          outputDir,
+          outputFileName + randomString + `-instance-${i}.png`
+        );
+        await instance.page.screenshot({path: screenshotPath});
+        showMessage(
+          `Screenshot captured for test failure and saved as : ${screenshotPath}`
+        );
+      } catch (error) {
+        showMessage(
+          `Error while taking screenshot for ${instance.username ?? 'unknown user'}: ${error}`
         );
       }
     });
@@ -306,7 +318,13 @@ export class BaseUser {
   private async setupClickLogger(): Promise<void> {
     await this.page.exposeFunction(
       'logClick',
-      ({position: {x, y}, timeInMilliseconds}: ClickDetails) => {
+      ({
+        position: {x, y},
+        timeInMilliseconds,
+      }: {
+        position: {x: number; y: number};
+        timeInMilliseconds: number;
+      }) => {
         // eslint-disable-next-line no-console
         console.log(
           `- Click position { x: ${x}, y: ${y} } from top-left corner ` +
@@ -367,17 +385,31 @@ export class BaseUser {
   }
 
   /**
+   * This function accepts the cookie banner if it is present on the page.
+   */
+  async acceptCookieBannerIfPresent(): Promise<void> {
+    if (await this.page.$(cookieBannerAcceptButtonSelector)) {
+      await this.clickOnElementWithSelector(cookieBannerAcceptButtonSelector);
+      this.userHasAcceptedCookies = true;
+      await this.page.waitForSelector(cookieBannerAcceptButtonSelector, {
+        hidden: true,
+        timeout: 10000,
+      });
+    }
+  }
+
+  /**
    * This function signs up a new user with the given username and email.
    */
   async signUpNewUser(username: string, email: string): Promise<void> {
     await this.signInWithEmail(email);
-    await this.typeInInputField('input.e2e-test-username-input', username);
-    await this.clickOnElementWithSelector(
-      'input.e2e-test-agree-to-terms-checkbox'
-    );
+
+    await this.typeInInputField(usernameSelector, username);
+    await this.clickOnElementWithSelector(termsCheckboxSelector);
     await this.page.waitForSelector(
       'button.e2e-test-register-user:not([disabled])'
     );
+
     await this.clickAndWaitForNavigation(LABEL_FOR_SUBMIT_BUTTON);
     this.username = username;
     this.email = email;
@@ -388,7 +420,10 @@ export class BaseUser {
    */
   async reloadPage(): Promise<void> {
     await this.waitForPageToFullyLoad();
-    await this.page.reload({waitUntil: ['networkidle0', 'load']});
+    await this.page.reload({
+      waitUntil: ['networkidle2', 'load'],
+      timeout: 60000,
+    });
   }
 
   /**
@@ -403,6 +438,7 @@ export class BaseUser {
         )
       ).page()) ?? (await this.browserObject.newPage());
     this.page = newPage;
+    this.attachNavigationLogs(this.page);
     this.setupDebugTools();
   }
 
@@ -482,21 +518,138 @@ export class BaseUser {
    * by the ElementHandle.
    */
   async waitForElementToBeClickable(
-    selector: string | ElementHandle<Element>
+    selector: string | ElementHandle<Element>,
+    timeout: number = 15000
   ): Promise<void> {
     const elementDesc = await this.getElementDescription(selector);
     showMessage(`Checking if element ${elementDesc} is clickable...`);
     const element =
       typeof selector === 'string'
-        ? await this.page.waitForSelector(selector)
+        ? await this.page.waitForSelector(selector, {
+            timeout: timeout,
+            visible: true,
+          })
         : selector;
     try {
-      await this.page.waitForFunction(isElementClickable, {}, element);
+      await this.page.waitForFunction(
+        isElementClickable,
+        {timeout: timeout},
+        element
+      );
     } catch (error) {
       if (error instanceof Error) {
+        const clickabilityDiagnostics = await this.page.evaluate(
+          (targetElement: Element) => {
+            const describeElement = (el: Element | null): string => {
+              if (!el) {
+                return 'none';
+              }
+
+              const tag = el.tagName.toLowerCase();
+              const id = el.id ? `#${el.id}` : '';
+              const classNames = el.className
+                ? String(el.className).trim().split(/\s+/).filter(Boolean)
+                : [];
+              const classes =
+                classNames.length > 0 ? `.${classNames.join('.')}` : '';
+              return `<${tag}${id}${classes}>`;
+            };
+
+            const rect = targetElement.getBoundingClientRect();
+            const inViewport =
+              rect.top <= window.innerHeight &&
+              rect.bottom > 0 &&
+              rect.left <= window.innerWidth &&
+              rect.right > 0;
+
+            const isNativeDisabled =
+              (targetElement instanceof HTMLButtonElement ||
+                targetElement instanceof HTMLInputElement ||
+                targetElement instanceof HTMLSelectElement ||
+                targetElement instanceof HTMLTextAreaElement ||
+                targetElement instanceof HTMLOptionElement) &&
+              targetElement.disabled;
+            const isAriaDisabled =
+              targetElement.getAttribute('aria-disabled') === 'true' ||
+              targetElement.closest('[aria-disabled="true"]') !== null;
+            const isDisabled = isNativeDisabled || isAriaDisabled;
+
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const centerTopElement = document.elementFromPoint(
+              centerX,
+              centerY
+            );
+            const firstClientRect = targetElement.getClientRects()[0];
+            const firstRectTopElement = firstClientRect
+              ? document.elementFromPoint(
+                  firstClientRect.left + firstClientRect.width / 2,
+                  firstClientRect.top + firstClientRect.height / 2
+                )
+              : null;
+
+            const isCoveredByOtherElement = [
+              centerTopElement,
+              firstRectTopElement,
+            ]
+              .filter(Boolean)
+              .some(topElement => {
+                if (!topElement) {
+                  return false;
+                }
+                return (
+                  topElement !== targetElement &&
+                  !targetElement.contains(topElement) &&
+                  !topElement.contains(targetElement)
+                );
+              });
+
+            const blockingElement =
+              [centerTopElement, firstRectTopElement]
+                .filter(
+                  topElement =>
+                    topElement &&
+                    topElement !== targetElement &&
+                    !targetElement.contains(topElement) &&
+                    !topElement.contains(targetElement)
+                )
+                .map(topElement => describeElement(topElement))[0] ?? 'none';
+
+            const reasons: string[] = [];
+            if (isDisabled) {
+              reasons.push('Element is disabled.');
+            }
+            if (!inViewport) {
+              reasons.push('Element is not in the viewport.');
+            }
+            if (isCoveredByOtherElement) {
+              reasons.push(`Element is blocked by ${blockingElement}.`);
+            }
+
+            return {
+              reasons,
+              isDisabled,
+              inViewport,
+              isCoveredByOtherElement,
+              blockingElement,
+            };
+          },
+          element
+        );
         await this.page.evaluate(isElementClickable, element, true, true);
+
+        const reasonsText =
+          clickabilityDiagnostics.reasons.length > 0
+            ? clickabilityDiagnostics.reasons
+                .map(
+                  (reason: string, index: number) => `${index + 1}. ${reason}`
+                )
+                .join('\n')
+            : 'No specific reason detected from diagnostics.';
+
         error.message =
-          `Element ${elementDesc} took too long to be clickable.\n` +
+          `Element ${elementDesc} took too long to be clickable (timeout ${timeout} ms).\n` +
+          `Detected reasons:\n${reasonsText}\n` +
           'Original Error:\n' +
           error.message;
       }
@@ -532,7 +685,7 @@ export class BaseUser {
     elementPlace?: number
   ): Promise<void> {
     const context = parentElement ?? this.page;
-    let element = await context.waitForSelector(selector, {timeout: 15000});
+    let element = await context.waitForSelector(selector, {timeout: 30000});
 
     // Get nth element if elementPlace is given.
     if (elementPlace) {
@@ -565,7 +718,7 @@ export class BaseUser {
     // https://developer.mozilla.org/en-US/docs/Web/XPath/Functions/normalize-space.
     const element = await this.page.waitForXPath(
       `//*[contains(normalize-space(text()), normalize-space("${text}"))]`,
-      {timeout: 10000}
+      {timeout: 60000}
     );
 
     if (!element) {
@@ -651,6 +804,7 @@ export class BaseUser {
     useSelector: boolean = false,
     options: puppeteer.WaitForOptions = {
       waitUntil: ['networkidle2', 'load'],
+      timeout: 60000,
     }
   ): Promise<void> {
     const navigationPromise = this.page.waitForNavigation(options);
@@ -677,11 +831,44 @@ export class BaseUser {
    * The function selects all text content and delete it.
    */
   async clearAllTextFrom(selector: string): Promise<void> {
-    // Clicking three times on a line of text selects all the text.
     const element = await this.getElementInParent(selector);
     await this.waitForElementToBeClickable(element);
-    await element.click({clickCount: 3});
-    await this.page.keyboard.press('Backspace');
+
+    const isTextInput = await element.evaluate(
+      el => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+    );
+
+    if (isTextInput) {
+      // Click the field to move the pointer (so hover-paused toasts dismiss)
+      // and to focus it before clearing, matching the keyboard-only behavior.
+      await element.click();
+
+      // Clear via the native value setter and an input event to update ngModel
+      // deterministically without depending on focus/selection timing. Do not
+      // dispatch 'change' here: change-bound editors (e.g. the URL fragment
+      // editor) would commit an empty value to their model before the user
+      // types; the native 'change' fires on the next blur with the full value.
+      await element.evaluate(el => {
+        const valueSetter = Object.getOwnPropertyDescriptor(
+          el instanceof HTMLTextAreaElement
+            ? HTMLTextAreaElement.prototype
+            : HTMLInputElement.prototype,
+          'value'
+        )?.set;
+
+        valueSetter?.call(el, '');
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+      });
+    } else {
+      // Rich-text editors (e.g. CKEditor) expose contenteditable divs, which
+      // cannot be cleared by setting their text directly without desyncing the
+      // editor's internal model. Clear them with real keyboard events instead.
+      await element.click();
+      await this.page.keyboard.down('Control');
+      await this.page.keyboard.press('A');
+      await this.page.keyboard.up('Control');
+      await this.page.keyboard.press('Backspace');
+    }
   }
 
   /**
@@ -749,6 +936,60 @@ export class BaseUser {
   }
 
   /**
+   * Checks if the value of text input with the given selector is equal to the given value.
+   * @param selector - The selector of the text input.
+   * @param value - The expected value of the text input.
+   */
+  async expectInputValueToBe(selector: string, value: string): Promise<void> {
+    await this.expectElementToBeVisible(selector);
+    const element = await this.page.$(selector);
+    expect(await element?.evaluate(el => (el as HTMLInputElement).value)).toBe(
+      value
+    );
+  }
+
+  /**
+   * This function converts a given date string into ISO format (YYYY-MM-DD).
+   */
+  private toISODate(dateString: string): string {
+    const date = new Date(dateString);
+
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date string: ${dateString}`);
+    }
+
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * This function set publication date for chapter.
+   */
+  async setNodePlannedPublicationDate(): Promise<void> {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 3);
+    const dateString = futureDate.toLocaleDateString('en-US');
+    const isoDate = this.toISODate(dateString);
+    await this.page.$eval(
+      plannedPublicationDateInput,
+      (el, value) => {
+        const input = el as HTMLInputElement;
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+
+        nativeInputValueSetter?.call(input, value);
+
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        input.dispatchEvent(new Event('blur', {bubbles: true}));
+      },
+      isoDate
+    );
+    showMessage('Planned publication date is set to: ' + isoDate);
+  }
+
+  /**
    * This selects a value in a dropdown.
    */
   async select(selector: string, option: string): Promise<void> {
@@ -757,11 +998,27 @@ export class BaseUser {
     await this.page.select(selector, option);
   }
 
-  /**
-   * This function navigates to the given URL.
-   */
   async goto(url: string, verifyURL: boolean = true): Promise<void> {
-    await this.page.goto(url, {waitUntil: ['networkidle0', 'load']});
+    const currentUrl = this.page.url();
+
+    // Normalize: only treat as "same page" if the URL matches exactly
+    // or continues with /, ?, or #.
+    const isSamePage =
+      currentUrl === url ||
+      currentUrl === `${url}/` ||
+      currentUrl.startsWith(`${url}?`);
+
+    if (isSamePage) {
+      await this.page.reload({
+        waitUntil: ['networkidle2', 'load'],
+        timeout: 60000,
+      });
+    } else {
+      await this.page.goto(url, {
+        waitUntil: ['networkidle2', 'load'],
+        timeout: 60000,
+      });
+    }
 
     if (verifyURL) {
       await this.page.waitForFunction(
@@ -1046,6 +1303,18 @@ export class BaseUser {
     // To wait for all images to load and the page to be stable.
     await currentPage.waitForTimeout(5000);
 
+    // Disable all CSS transitions and animations before taking the
+    // screenshot to prevent snapshot mismatches caused by transitions
+    // being mid-way when the screenshot is captured.
+    const styleHandle = await currentPage.addStyleTag({
+      content: `
+        *, *::before, *::after {
+          transition: none !important;
+          animation: none !important;
+        }
+      `,
+    });
+
     /* The variable failureTrigger is the percentage of the difference between the stored screenshot and the current screenshot that would trigger a failure
      * In general, it is set as 0.04/4% (desktop) 0.042/4.2% (mobile) for the randomness of the page that are small enough to be ignored.
      * Based on the existence of the background/library banner, which are randomly selected from a set of four,
@@ -1126,6 +1395,9 @@ export class BaseUser {
         ' folder name should be something like new-snapshots_(suite-name)_desktop_original.' +
         ' The new screenshot(s) should end with "-received". When replacing the screenshot(s), make sure to change the postfix "-received" to "-snap".';
       throw new Error(errorMessage);
+    } finally {
+      // Remove the injected style tag so it doesn't affect subsequent actions.
+      await currentPage.evaluate(el => el.remove(), styleHandle);
     }
   }
 
@@ -1134,15 +1406,17 @@ export class BaseUser {
    *
    * If the network does not become idle within the specified timeout, this function will log a message and continue. This is
    * because the main objective of the test is to interact with the page, not specifically to ensure that the network becomes
-   * idle within a certain timeframe. However, a timeout of 30 seconds should be sufficient for the network to become idle in
-   * almost all cases and for the page to fully load.
+   * idle within a certain timeframe.
    *
-   * @param {Object} options The options to pass to page.waitForNetworkIdle. Defaults to {timeout: 30000, idleTime: 500}.
+   * The default timeout is intentionally short because this helper is best-effort; on busy CI runners, a long default timeout
+   * can significantly inflate total setup time across many calls.
+   *
+   * @param {Object} options The options to pass to page.waitForNetworkIdle. Defaults to {timeout: 5000, idleTime: 500}.
    * @param {Page} page The page to wait for network idle. Defaults to the current page.
    */
   async waitForNetworkIdle(
     options: {timeout?: number; idleTime?: number} = {
-      timeout: 30000,
+      timeout: 5000,
       idleTime: 500,
     },
     page: Page = this.page
@@ -1246,6 +1520,7 @@ export class BaseUser {
 
     await newPage.bringToFront();
     this.page = newPage;
+    this.attachNavigationLogs(this.page);
     return newPage;
   }
 
@@ -1349,8 +1624,18 @@ export class BaseUser {
     visibility: boolean = true,
     context: Page = this.page
   ): Promise<void> {
-    const options = visibility ? {visible: true} : {hidden: true};
-    await context.waitForSelector(selector, options);
+    if (visibility) {
+      await context.waitForSelector(selector, {visible: true});
+    } else {
+      await context.waitForFunction(
+        (sel: string) => {
+          const el = document.querySelector(sel);
+          return !el || (el as HTMLElement).offsetParent === null;
+        },
+        {},
+        selector
+      );
+    }
     showMessage(`Element ${selector} is ${visibility ? 'visible' : 'hidden'}.`);
   }
 
@@ -1463,6 +1748,7 @@ export class BaseUser {
     selector: string,
     text: string
   ): Promise<void> {
+    await this.expectElementToBeVisible(selector);
     try {
       await this.page.waitForFunction(
         (selector: string, text: string) => {
@@ -1538,6 +1824,23 @@ export class BaseUser {
   }
 
   /**
+   * Verifies that the placeholder attribute of the given input or textarea
+   * element matches the expected value.
+   * @param {string} selector - The CSS selector of the element.
+   * @param {string} expectedPlaceholder - The expected placeholder text.
+   */
+  async expectElementPlaceholderToBe(
+    selector: string,
+    expectedPlaceholder: string
+  ): Promise<void> {
+    const placeholder = await this.page.$eval(
+      selector,
+      el => (el as HTMLInputElement | HTMLTextAreaElement).placeholder
+    );
+    expect(placeholder).toBe(expectedPlaceholder);
+  }
+
+  /**
    * Checks if element is clickable or not.
    */
   async expectElementToBeClickable(
@@ -1551,6 +1854,64 @@ export class BaseUser {
     await this.page.waitForFunction(isElementClickable, {}, element, clickable);
   }
 
+  /**
+   * Retrieves a chapter element by its name.
+   * @param {string} chapterName - The name of the chapter to search for.
+   */
+  private async getChapterByName(
+    chapterName: string
+  ): Promise<ElementHandle<Element>> {
+    const chapters = await this.page.$$(chapterTitleSelector);
+
+    for (const chapter of chapters) {
+      const text = await this.page.evaluate(
+        el => el.textContent?.trim(),
+        chapter
+      );
+
+      if (text?.includes(chapterName)) {
+        return chapter;
+      }
+    }
+
+    throw new Error(`Chapter with name "${chapterName}" not found`);
+  }
+
+  /**
+   * Verifies whether a chapter is clickable or not.
+   * @param {string} chapterName - The name of the chapter.
+   * @param {boolean} [shouldBeNavigable=true] - Expected navigable state.
+   */
+  async expectChapterToBeNavigable(
+    chapterName: string,
+    shouldBeNavigable: boolean = true
+  ): Promise<void> {
+    const chapterElement = await this.getChapterByName(chapterName);
+
+    const currentUrl = this.page.url();
+
+    await chapterElement.click();
+    // Added for debugging purposes to ensure the page has enough time to navigate before we check the URL. This can be removed if we find a more reliable way to check for navigation.
+    await this.waitForPageToFullyLoad();
+    const newUrl = this.page.url();
+    const didNavigate = newUrl !== currentUrl;
+
+    if (shouldBeNavigable && !didNavigate) {
+      throw new Error(
+        `Chapter "${chapterName}" did not navigate but expected to.`
+      );
+    }
+
+    if (!shouldBeNavigable && didNavigate) {
+      throw new Error(
+        `Chapter "${chapterName}" navigated but expected not to.`
+      );
+    }
+
+    if (didNavigate) {
+      await this.page.goBack({waitUntil: 'networkidle0'});
+    }
+  }
   /**
    * Helper method to wait for a action progress message to disappear
    * @param {string} progressMessage - The processing message to wait for completion
@@ -1678,10 +2039,10 @@ export class BaseUser {
         selector,
         parentElement
       );
-      await selectElement.click();
+      await this.clickOnElement(selectElement);
 
       // Select the option.
-      await this.page.waitForSelector('mat-option');
+      await this.page.waitForSelector('mat-option', {visible: true});
       const options = await this.page.$$('mat-option');
       const optionTexts: string[] = [];
 
@@ -1703,7 +2064,7 @@ export class BaseUser {
       }
 
       // Click on the option.
-      await optionElement.click();
+      await this.clickOnElement(optionElement);
 
       // Verify the value of the select is updated.
       await this.expectTextContentToBe(selector, value);
@@ -1937,7 +2298,10 @@ export class BaseUser {
    * Expects the text content of the toast message to match the given expected message.
    * @param {string} expectedMessage - The expected message to match the toast message against.
    */
-  async expectToastMessage(expectedMessage: string): Promise<void> {
+  async expectToastMessage(
+    expectedMessage: string,
+    timeout?: number
+  ): Promise<void> {
     // The toast message disappears after a few seconds, so we need to process
     // the toastMessageElement as soon as we receive it. Otherwise, the text
     // within it may no longer be showing at the time of evaluation.
@@ -1962,13 +2326,94 @@ export class BaseUser {
   }
 
   /**
+   * Verifies that the currently visible toast notification shows the expected
+   * message, has a small manual "X" dismiss button, and auto-fades after the
+   * expected timeout if left untouched.
+   * @param {string} expectedMessage - The expected message of the toast.
+   * @param {number} timeoutMilliseconds - The expected auto-fade duration.
+   */
+  async expectToastMessageWithDismissButtonToAutoDismiss(
+    expectedMessage: string,
+    timeoutMilliseconds: number
+  ): Promise<void> {
+    const toastMessageElement = await this.page.waitForSelector(
+      toastMessageSelector,
+      {visible: true}
+    );
+    const startTimeInMilliseconds = Date.now();
+
+    const toastMessage = await this.page.evaluate(
+      el => el.textContent.trim(),
+      toastMessageElement
+    );
+    if (toastMessage !== expectedMessage) {
+      throw new Error(
+        `Expected toast message to be "${expectedMessage}", but it was "${toastMessage}".`
+      );
+    }
+
+    const hasDismissButton = await this.page.evaluate(
+      (messageSelector: string) => {
+        const messageElement = document.querySelector(messageSelector);
+        const toastElement = messageElement?.closest('.ngx-toastr, .toast');
+        return Boolean(
+          toastElement?.querySelector('button.toast-close-button')
+        );
+      },
+      toastMessageSelector
+    );
+    if (!hasDismissButton) {
+      throw new Error(
+        'Expected the toast notification to have a small "X" dismiss button, ' +
+          'but it was not found.'
+      );
+    }
+
+    await this.page.waitForSelector(toastMessageSelector, {
+      hidden: true,
+      timeout: 10000,
+    });
+    const autoDismissTimeInMilliseconds = Date.now() - startTimeInMilliseconds;
+    if (
+      autoDismissTimeInMilliseconds < timeoutMilliseconds - 1000 ||
+      autoDismissTimeInMilliseconds > timeoutMilliseconds + 5000
+    ) {
+      throw new Error(
+        `Expected the toast notification to auto-fade after ${timeoutMilliseconds} ms, but it lasted ${autoDismissTimeInMilliseconds} ms.`
+      );
+    }
+    showMessage(
+      `Verified that the toast notification auto-fades after ${autoDismissTimeInMilliseconds} ms.`
+    );
+  }
+
+  /**
+   * Expects the text content of any toast message to match the given expected message.
+   * @param {string} expectedMessage - The expected message to match the toast message against.
+   */
+  async expectAnyToastMessage(expectedMessage: string): Promise<void> {
+    // Wait until any toast with the expected message is visible.
+    await this.page.waitForFunction(
+      (selector: string, expected: string) =>
+        Array.from(document.querySelectorAll(selector)).some(
+          el => el.textContent?.trim() === expected
+        ),
+      {},
+      toastMessageSelector,
+      expectedMessage
+    );
+  }
+
+  /**
    * Clicks on the button in the modal with the given title and action.
    * @param title - The title of the modal.
    * @param action - The action to click on the button in the modal.
+   * @param expectModalToClose - Whether to expect the modal to close after clicking the button.
    */
   async clickButtonInModal(
     title: string,
-    action: 'confirm' | 'cancel'
+    action: 'confirm' | 'cancel',
+    expectModalToClose: boolean = true
   ): Promise<void> {
     await this.expectElementToBeVisible(commonModalTitleSelector);
     await this.expectTextContentToBe(commonModalTitleSelector, title);
@@ -1980,7 +2425,28 @@ export class BaseUser {
     await this.expectElementToBeVisible(currentActionBtnSelector);
     await this.clickOnElementWithSelector(currentActionBtnSelector);
 
-    await this.expectElementToBeVisible(currentActionBtnSelector, false);
+    await this.expectElementToBeVisible(
+      currentActionBtnSelector,
+      !expectModalToClose
+    );
+  }
+
+  /**
+   * Function to expect the page to have no translation ids.
+   */
+  async expectPageHasNoTranslationIds(): Promise<void> {
+    const translationIds = await this.page.$$eval('[translate]', elements =>
+      elements
+        .map(el => el.getAttribute('translate'))
+        .filter(val => val && val.startsWith('I18N'))
+    );
+
+    if (translationIds.length > 0) {
+      throw new Error(
+        `Page has untranslated strings: ${translationIds.join(', ')}`
+      );
+    }
+    showMessage('Success: Page has no translation ids.');
   }
 
   /**
@@ -2162,6 +2628,29 @@ export class BaseUser {
     await this.expectElementToBeVisible(hideOSKButtonSelector);
     await this.clickOnElementWithSelector(hideOSKButtonSelector);
     await this.expectElementToBeVisible(hideOSKButtonSelector, false);
+  }
+
+  /**
+   * Logs every navigation event on the page.
+   */
+  attachNavigationLogs(page: Page): void {
+    page.on('framenavigated', frame => {
+      showMessage('NAVIGATED: ' + frame.url());
+    });
+
+    page.on('response', response => {
+      if (response.status() >= 500 && response.url().startsWith(baseURL)) {
+        const url = response.url();
+        // TODO(#18372): Ignore 500 errors from version_history_handler.
+        if (url.includes('/version_history_handler/')) {
+          return;
+        }
+
+        const errorMsg = `Server error: ${response.status()} at ${url}`;
+        showMessage(errorMsg);
+        BaseUser.serverErrors.push(errorMsg);
+      }
+    });
   }
 }
 

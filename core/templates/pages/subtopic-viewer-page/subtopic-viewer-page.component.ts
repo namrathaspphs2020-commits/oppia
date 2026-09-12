@@ -16,7 +16,7 @@
  * @fileoverview Component for the subtopic viewer.
  */
 
-import {Component, OnDestroy, OnInit} from '@angular/core';
+import {Component, OnDestroy, OnInit, ViewEncapsulation} from '@angular/core';
 import {TranslateService} from '@ngx-translate/core';
 import {Subscription} from 'rxjs';
 
@@ -36,7 +36,6 @@ import {
 import {LoaderService} from 'services/loader.service';
 import {PageTitleService} from 'services/page-title.service';
 
-import './subtopic-viewer-page.component.css';
 import {StudyGuideSection} from 'domain/topic/study-guide-sections.model';
 import {PlatformFeatureService} from 'services/platform-feature.service';
 import {WindowRef} from 'services/contextual/window-ref.service';
@@ -45,11 +44,13 @@ import {UrlInterpolationService} from 'domain/utilities/url-interpolation.servic
 import {ClassroomDomainConstants} from 'domain/classroom/classroom-domain.constants';
 import {PracticeSessionPageConstants} from 'pages/practice-session-page/practice-session-page.constants';
 import {SiteAnalyticsService} from 'services/site-analytics.service';
+import './subtopic-viewer-page.component.css';
 
 @Component({
   selector: 'oppia-subtopic-viewer-page',
   templateUrl: './subtopic-viewer-page.component.html',
   styleUrls: ['./subtopic-viewer-page.component.css'],
+  encapsulation: ViewEncapsulation.None,
 })
 export class SubtopicViewerPageComponent implements OnInit, OnDestroy {
   // These properties are initialized using Angular lifecycle hooks

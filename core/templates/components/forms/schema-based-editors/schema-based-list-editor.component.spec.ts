@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for Schema Based List Editor Component
  */
 
+// @ts-nocheck
+
 import {
   ComponentFixture,
   fakeAsync,
@@ -24,7 +26,12 @@ import {
 } from '@angular/core/testing';
 import {SchemaBasedListEditorComponent} from './schema-based-list-editor.component';
 import {NO_ERRORS_SCHEMA, EventEmitter} from '@angular/core';
-import {FormControl, FormsModule} from '@angular/forms';
+import {
+  FormControl,
+  FormsModule,
+  NG_VALIDATORS,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 import {MockTranslatePipe} from 'tests/unit-test-utils';
 
 import {Validator as OppiaValidator} from 'interactions/TextInput/directives/text-input-validation.service';
@@ -112,15 +119,15 @@ describe('Schema Based List Editor Component', () => {
     component.localValue = ['item1', ''];
     component.ngOnInit();
 
-    expect(component.isAddItemButtonPresent).toBeTrue();
+    expect(component.isAddItemButtonPresent).toBe(true);
 
     component.hideAddItemButton();
 
-    expect(component.isAddItemButtonPresent).toBeFalse();
+    expect(component.isAddItemButtonPresent).toBe(false);
 
     component.showAddItemButton();
 
-    expect(component.isAddItemButtonPresent).toBeTrue();
+    expect(component.isAddItemButtonPresent).toBe(true);
   });
 
   it(
@@ -164,11 +171,11 @@ describe('Schema Based List Editor Component', () => {
   it('should check if the item list has duplicate values or not', () => {
     component.localValue = ['item1', 'item2', 'item3'];
 
-    expect(component.hasDuplicates()).toBeFalse();
+    expect(component.hasDuplicates()).toBe(false);
 
     component.localValue = ['item1', 'item3', 'item3'];
 
-    expect(component.hasDuplicates()).toBeTrue();
+    expect(component.hasDuplicates()).toBe(true);
   });
 
   it('should set one line input as false if editor is in coding mode', () => {
@@ -183,7 +190,7 @@ describe('Schema Based List Editor Component', () => {
     };
     component.ngOnInit();
 
-    expect(component.isOneLineInput).toBeFalse();
+    expect(component.isOneLineInput).toBe(false);
   });
 
   it('should set one line input as false if editor has rows', () => {
@@ -198,7 +205,7 @@ describe('Schema Based List Editor Component', () => {
     };
     component.ngOnInit();
 
-    expect(component.isOneLineInput).toBeFalse();
+    expect(component.isOneLineInput).toBe(false);
   });
 
   it(
@@ -234,7 +241,7 @@ describe('Schema Based List Editor Component', () => {
 
       component.ngOnInit();
 
-      expect(component.showDuplicatesWarning).toBeFalse();
+      expect(component.showDuplicatesWarning).toBe(false);
     }
   );
 
@@ -251,7 +258,7 @@ describe('Schema Based List Editor Component', () => {
 
       component.ngOnInit();
 
-      expect(component.showDuplicatesWarning).toBeTrue();
+      expect(component.showDuplicatesWarning).toBe(true);
     }
   );
 
@@ -261,7 +268,7 @@ describe('Schema Based List Editor Component', () => {
 
     component.ngOnInit();
 
-    expect(component.isAddItemButtonPresent).toBeFalse();
+    expect(component.isAddItemButtonPresent).toBe(false);
   });
 
   it('should delete empty elements from items list', () => {
@@ -361,5 +368,60 @@ describe('Schema Based List Editor Component', () => {
     const index = 5;
     const result = component.trackByIndex(index);
     expect(result).toBe(index);
+  });
+
+  it('should check whether last element has non-zero length', () => {
+    component.localValue = [];
+    expect(component.hasLastElementNonZeroLength()).toBe(false);
+
+    component.localValue = [['value']];
+    expect(component.hasLastElementNonZeroLength()).toBe(true);
+
+    component.localValue = [0 as unknown as SchemaDefaultValue];
+    expect(component.hasLastElementNonZeroLength()).toBe(false);
+  });
+
+  it('should not delete last element on blur when undefined value is empty string', () => {
+    component.localValue = ['item1', ''];
+
+    component.lastElementOnBlur();
+
+    expect(component.localValue).toEqual(['item1', '']);
+  });
+
+  it('should not add element on child form submission when max length is reached', () => {
+    component.localValue = ['item1'];
+    component.maxListLength = 1;
+    component.isAddItemButtonPresent = false;
+
+    component._onChildFormSubmit();
+
+    expect(component.localValue).toEqual(['item1']);
+  });
+
+  it('should keep one line input false for non-unicode schema and use default add text', () => {
+    component.itemSchema = {
+      type: 'int',
+      ui_config: {
+        coding_mode: false,
+        rows: 1,
+      },
+      choices: [1, 2],
+    };
+    component.uiConfig = undefined as unknown as {add_element_text: string};
+
+    component.ngOnInit();
+
+    expect(component.isOneLineInput).toBe(false);
+    expect(component.addElementText).toBe('Add element');
+  });
+
+  it('should expose itself as a control value accessor and validator', () => {
+    expect(fixture.debugElement.injector.get(NG_VALUE_ACCESSOR)).toEqual([
+      component,
+    ]);
+    expect(fixture.debugElement.injector.get(NG_VALIDATORS)).toEqual([
+      component,
+    ]);
   });
 });

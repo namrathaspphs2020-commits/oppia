@@ -28,10 +28,12 @@ import {ExternalSaveService} from 'services/external-save.service';
 import {RouterService} from 'pages/exploration-editor-page/services/router.service';
 import {NormalizeWhitespacePipe} from 'filters/string-utility-filters/normalize-whitespace.pipe';
 import {EditabilityService} from 'services/editability.service';
+import './state-name-editor.component.css';
 
 @Component({
   selector: 'oppia-state-name-editor',
   templateUrl: './state-name-editor.component.html',
+  styleUrls: ['./state-name-editor.component.css'],
 })
 export class StateNameEditorComponent implements OnInit, OnDestroy {
   directiveSubscriptions = new Subscription();
@@ -52,6 +54,14 @@ export class StateNameEditorComponent implements OnInit, OnDestroy {
     private stateEditorService: StateEditorService,
     private stateNameService: StateNameService
   ) {}
+
+  get activeStateName(): string | null {
+    return this.stateEditorService.getActiveStateName();
+  }
+
+  isStateNameEditorShown(): boolean {
+    return this.stateNameService.isStateNameEditorShown();
+  }
 
   openStateNameEditor(): void {
     let stateName = this.stateEditorService.getActiveStateName();

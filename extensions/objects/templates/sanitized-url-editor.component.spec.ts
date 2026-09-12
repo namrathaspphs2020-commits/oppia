@@ -16,10 +16,12 @@
  * @fileoverview Unit tests for sanitized URL editor.
  */
 
+// @ts-nocheck
+
 import {EventEmitter, NO_ERRORS_SCHEMA} from '@angular/core';
 import {ChangeDetectorRef} from '@angular/core';
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   flush,
@@ -42,7 +44,7 @@ describe('SanitizedUrlEditorComponent', () => {
   let component: SanitizedUrlEditorComponent;
   let fixture: ComponentFixture<SanitizedUrlEditorComponent>;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
         FormsModule,

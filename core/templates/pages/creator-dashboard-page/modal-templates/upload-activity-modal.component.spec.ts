@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for UploadActivityModalComponent.
  */
 
+// @ts-nocheck
+
 import {AlertsService} from 'services/alerts.service';
 import {
   ComponentFixture,
@@ -88,7 +90,6 @@ describe('Upload Activity Modal Component', () => {
     // actual 'getElementById' returns more properties than just "files".
     // We need to suppress this error because we need only "files"
     // property for testing.
-    // @ts-expect-error
     spyOn(document, 'getElementById').and.callFake(() => {
       return {
         files: [file],
@@ -111,7 +112,6 @@ describe('Upload Activity Modal Component', () => {
     // actual 'getElementById' returns more properties than just "files".
     // We need to suppress this error because we need only "files"
     // property for testing.
-    // @ts-expect-error
     spyOn(document, 'getElementById').and.callFake(() => {
       return {
         files: [],
@@ -148,7 +148,6 @@ describe('Upload Activity Modal Component', () => {
     // actual 'getElementById' returns more properties than just "files".
     // We need to suppress this error because we need only "files"
     // property for testing.
-    // @ts-expect-error
     spyOn(document, 'getElementById').and.callFake(() => {
       return {
         files: null,

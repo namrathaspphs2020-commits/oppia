@@ -28,12 +28,8 @@ from core.tests import test_utils
 from scripts import build, common, run_lighthouse_tests, servers
 
 GOOGLE_APP_ENGINE_PORT = 8181
-LIGHTHOUSE_MODE_PERFORMANCE = 'performance'
-LIGHTHOUSE_MODE_ACCESSIBILITY = 'accessibility'
-LIGHTHOUSE_CONFIG_FILENAMES = {
-    LIGHTHOUSE_MODE_PERFORMANCE: '.lighthouserc-performance.js',
-    LIGHTHOUSE_MODE_ACCESSIBILITY: '.lighthouserc-accessibility.js',
-}
+LIGHTHOUSE_CONFIG_FILENAME = '.lighthouserc.js'
+LIGHTHOUSE_DESKTOP_CONFIG_FILENAME = '.lighthouserc-desktop.js'
 
 
 class MockCompiler:
@@ -68,17 +64,24 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
         puppeteer_path = os.path.join(
             'core', 'tests', 'puppeteer', 'lighthouse_setup.js'
         )
-        self.puppeteer_bash_command = [common.NODE_BIN_PATH, puppeteer_path]
+        self.puppeteer_bash_command = [
+            common.LIGHTHOUSE_NODE_BIN_PATH,
+            puppeteer_path,
+        ]
         lhci_path = os.path.join(
             'node_modules', '@lhci', 'cli', 'src', 'cli.js'
         )
         self.lighthouse_check_bash_command = [
-            common.NODE_BIN_PATH,
+            common.LIGHTHOUSE_NODE_BIN_PATH,
             lhci_path,
             'autorun',
-            '--config=%s'
-            % (LIGHTHOUSE_CONFIG_FILENAMES[LIGHTHOUSE_MODE_PERFORMANCE]),
-            '--max-old-space-size=4096',
+            '--config=%s' % LIGHTHOUSE_CONFIG_FILENAME,
+        ]
+        self.lighthouse_desktop_check_bash_command = [
+            common.LIGHTHOUSE_NODE_BIN_PATH,
+            lhci_path,
+            'autorun',
+            '--config=%s' % LIGHTHOUSE_DESKTOP_CONFIG_FILENAME,
         ]
         # Arguments to record in lighthouse_setup.js.
         self.extra_args = [
@@ -88,16 +91,13 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             ),
         ]
 
-        def mock_context_manager() -> MockCompilerContextManager:
+        def mock_context_manager(
+            **unused_kwargs: bool,
+        ) -> MockCompilerContextManager:
             return MockCompilerContextManager()
 
-        env = os.environ.copy()
-        env['PIP_NO_DEPS'] = 'True'
         self.swap_ng_build = self.swap(
             servers, 'managed_ng_build', mock_context_manager
-        )
-        self.swap_webpack_compiler = self.swap(
-            servers, 'managed_webpack_compiler', mock_context_manager
         )
         self.swap_redis_server = self.swap(
             servers, 'managed_redis_server', mock_context_manager
@@ -111,18 +111,10 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
         self.swap_cloud_datastore_emulator = self.swap(
             servers, 'managed_cloud_datastore_emulator', mock_context_manager
         )
-        self.swap_dev_appserver = self.swap_with_checks(
+        self.swap_dev_appserver = self.swap(
             servers,
             'managed_dev_appserver',
             lambda *unused_args, **unused_kwargs: MockCompilerContextManager(),
-            expected_kwargs=[
-                {
-                    'port': GOOGLE_APP_ENGINE_PORT,
-                    'log_level': 'critical',
-                    'skip_sdk_update_check': True,
-                    'env': env,
-                }
-            ],
         )
         with open('dummy-lighthouse-pages.json', 'w', encoding='utf-8') as f:
             f.write(
@@ -160,6 +152,29 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             ValueError, 'Entity skill_id not found in entities.'
         ):
             run_lighthouse_tests.inject_entities_into_url(url, entities)
+
+    def test_inject_entities_into_url_with_multiple_entities(self) -> None:
+        entities = {'topic_id': '4', 'story_id': '5'}
+        url = (
+            'http://localhost:8181/topic_editor/{{topic_id}}/'
+            'story_editor/{{story_id}}'
+        )
+        expected_injected_url = (
+            'http://localhost:8181/topic_editor/4/story_editor/5'
+        )
+        self.assertEqual(
+            run_lighthouse_tests.inject_entities_into_url(url, entities),
+            expected_injected_url,
+        )
+
+    def test_inject_entities_into_url_with_repeated_entity(self) -> None:
+        entities = {'topic_id': '4'}
+        url = 'http://localhost:8181/topic_editor/{{topic_id}}/{{topic_id}}'
+        expected_injected_url = 'http://localhost:8181/topic_editor/4/4'
+        self.assertEqual(
+            run_lighthouse_tests.inject_entities_into_url(url, entities),
+            expected_injected_url,
+        )
 
     def test_get_lighthouse_pages_config(self) -> None:
         with self.lighthouse_pages_json_filepath_swap:
@@ -328,32 +343,33 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             self.print_arr,
         )
 
-    def test_run_webpack_compilation_successfully(self) -> None:
+    def test_run_ng_compilation_successfully(self) -> None:
         swap_isdir = self.swap_with_checks(
             os.path, 'isdir', lambda _: True, expected_kwargs=[]
         )
 
-        with self.print_swap, self.swap_webpack_compiler, swap_isdir:
-            run_lighthouse_tests.run_webpack_compilation()
+        with self.print_swap, self.swap_ng_build, swap_isdir:
+            servers.run_ng_compilation()
 
         self.assertNotIn(
-            'Failed to complete webpack compilation, exiting...', self.print_arr
+            'Failed to complete ng compilation, exiting...', self.print_arr
         )
 
-    def test_run_webpack_compilation_failed(self) -> None:
+    def test_run_ng_compilation_failed(self) -> None:
         swap_isdir = self.swap_with_checks(
             os.path, 'isdir', lambda _: False, expected_kwargs=[]
         )
 
-        with self.print_swap, self.swap_webpack_compiler, swap_isdir:
+        with self.print_swap, self.swap_ng_build, swap_isdir:
             with self.swap_sys_exit:
-                run_lighthouse_tests.run_webpack_compilation()
+                servers.run_ng_compilation()
 
         self.assertIn(
-            'Failed to complete webpack compilation, exiting...', self.print_arr
+            'Failed to complete ng build compilation, exiting...',
+            self.print_arr,
         )
 
-    def test_subprocess_error_results_in_failed_webpack_compilation(
+    def test_subprocess_error_results_in_failed_ng_compilation(
         self,
     ) -> None:
         class MockFailedCompiler:
@@ -375,9 +391,9 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
         def mock_failed_context_manager() -> MockFailedCompilerContextManager:
             return MockFailedCompilerContextManager()
 
-        self.swap_webpack_compiler = self.swap_with_checks(
+        swap_ng_compiler = self.swap_with_checks(
             servers,
-            'managed_webpack_compiler',
+            'managed_ng_build',
             mock_failed_context_manager,
             expected_args=(),
             expected_kwargs=[],
@@ -386,11 +402,181 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             os.path, 'isdir', lambda _: False, expected_kwargs=[]
         )
 
-        with self.print_swap, self.swap_webpack_compiler, swap_isdir:
+        with self.print_swap, swap_ng_compiler, swap_isdir:
             with self.swap_sys_exit:
-                run_lighthouse_tests.run_webpack_compilation()
+                servers.run_ng_compilation()
 
         self.assertIn('Subprocess execution failed.', self.print_arr)
+
+    def test_run_lighthouse_checks_uses_lighthouse_node_on_path(self) -> None:
+        class MockTask:
+            returncode = 0
+
+            def communicate(  # pylint: disable=missing-docstring
+                self,
+            ) -> tuple[bytes, bytes]:
+                return (b'Task output', b'No error.')
+
+        captured_kwargs: dict[str, dict[str, str]] = {}
+
+        def mock_popen(
+            *unused_args: str, **popen_kwargs: dict[str, str]
+        ) -> MockTask:  # pylint: disable=unused-argument
+            captured_kwargs['env'] = popen_kwargs['env']
+            return MockTask()
+
+        swap_popen = self.swap(subprocess, 'Popen', mock_popen)
+
+        with self.print_swap, swap_popen:
+            run_lighthouse_tests.run_lighthouse_checks()
+
+        self.assertEqual(
+            captured_kwargs['env']['PATH'].split(os.pathsep)[0],
+            os.path.dirname(common.LIGHTHOUSE_NODE_BIN_PATH),
+        )
+        self.assertEqual(
+            captured_kwargs['env']['NODE_OPTIONS'],
+            '--max-old-space-size=4096',
+        )
+
+    def test_patch_lighthouse_target_manager_success(self) -> None:
+        file_contents = (
+            'if (/\'Target.getTargetInfo\' wasn\'t found/.test(err)) return;'
+        )
+        temp_file_path: str
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.js', delete=False
+        ) as f:
+            f.write(file_contents)
+            temp_file_path = f.name
+
+        swap_isfile = self.swap(os.path, 'isfile', lambda _: True)
+        swap_join = self.swap(os.path, 'join', lambda *_unused: temp_file_path)
+
+        # Capture the real open before swapping builtins.open below; otherwise
+        # this mock would call itself recursively when reading the patched
+        # target-manager.js file.
+        real_open = open
+
+        # Here we use object because open() can receive arbitrary positional
+        # and keyword arguments whose concrete types are not relevant to the
+        # mock for this test.
+        def mock_open(
+            unused_path: str, mode: str = 'r', **unused_kwargs: object
+        ) -> object:
+            return real_open(temp_file_path, mode, encoding='utf-8')
+
+        swap_open = self.swap(builtins, 'open', mock_open)
+        with self.print_swap, swap_isfile, swap_join, swap_open:
+            run_lighthouse_tests._patch_lighthouse_target_manager()  # pylint: disable=protected-access
+
+        with open(temp_file_path, 'r', encoding='utf-8') as read_file:
+            patched = read_file.read()
+        self.assertIn('/Not allowed/.test(err.message)', patched)
+        self.assertIn(
+            'Patched lighthouse target-manager.js for cross-origin CDP errors.',
+            self.print_arr,
+        )
+        os.remove(temp_file_path)
+
+    def test_patch_lighthouse_target_manager_missing_file(self) -> None:
+        swap_isfile = self.swap(os.path, 'isfile', lambda _: False)
+        with self.print_swap, swap_isfile:
+            with self.assertRaisesRegex(
+                RuntimeError, 'Could not find Lighthouse target-manager.js'
+            ):
+                run_lighthouse_tests._patch_lighthouse_target_manager()  # pylint: disable=protected-access
+
+    def test_patch_lighthouse_target_manager_substitution_not_found(
+        self,
+    ) -> None:
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.js', delete=False
+        ) as f:
+            f.write('unrelated source content')
+            temp_file_path = f.name
+
+        swap_isfile = self.swap(os.path, 'isfile', lambda _: True)
+        swap_join = self.swap(os.path, 'join', lambda *_unused: temp_file_path)
+
+        # Capture the real open before swapping builtins.open below; otherwise
+        # this mock would call itself recursively when reading the patched
+        # target-manager.js file.
+        real_open = open
+
+        # Here we use object because open() can receive arbitrary positional
+        # and keyword arguments whose concrete types are not relevant to the
+        # mock for this test.
+        def mock_open(
+            unused_path: str, mode: str = 'r', **unused_kwargs: object
+        ) -> object:
+            return real_open(temp_file_path, mode, encoding='utf-8')
+
+        swap_open = self.swap(builtins, 'open', mock_open)
+        with self.print_swap, swap_isfile, swap_join, swap_open:
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'the expected upstream source line was not found',
+            ):
+                run_lighthouse_tests._patch_lighthouse_target_manager()  # pylint: disable=protected-access
+        os.remove(temp_file_path)
+
+    def test_get_lighthouse_environment_prepends_lighthouse_node(self) -> None:
+        environ_swap = self.swap(
+            os, 'environ', {'PATH': '/original/path', 'HOME': '/home'}
+        )
+        with environ_swap:
+            env = (
+                run_lighthouse_tests._get_lighthouse_environment()  # pylint: disable=protected-access
+            )
+
+        self.assertEqual(
+            env['PATH'].split(os.pathsep)[0],
+            os.path.dirname(common.LIGHTHOUSE_NODE_BIN_PATH),
+        )
+        self.assertIn('/original/path', env['PATH'])
+        self.assertEqual(env['HOME'], '/home')
+
+    def test_patch_lighthouse_target_manager_when_already_patched(
+        self,
+    ) -> None:
+        file_contents = (
+            'if (/\'Target.getTargetInfo\' wasn\'t found/.test(err)) return;\n'
+            '      if (/Not allowed/.test(err.message)) return;'
+        )
+        temp_file_path: str
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.js', delete=False
+        ) as f:
+            f.write(file_contents)
+            temp_file_path = f.name
+
+        swap_join = self.swap(os.path, 'join', lambda *_unused: temp_file_path)
+
+        # Capture the real open before swapping builtins.open below; otherwise
+        # this mock would call itself recursively when reading the patched
+        # target-manager.js file.
+        real_open = open
+
+        # Here we use object because open() can receive arbitrary arguments
+        # whose concrete types are not relevant to the mock for this test.
+        def mock_open(
+            unused_path: str, mode: str = 'r', encoding: str = 'utf-8'
+        ) -> object:
+            return real_open(temp_file_path, mode, encoding=encoding)
+
+        swap_open = self.swap(builtins, 'open', mock_open)
+        with self.print_swap, swap_join, swap_open:
+            run_lighthouse_tests._patch_lighthouse_target_manager()  # pylint: disable=protected-access
+
+        with open(temp_file_path, 'r', encoding='utf-8') as read_file:
+            content = read_file.read()
+        self.assertEqual(content, file_contents)
+        self.assertNotIn(
+            'Patched lighthouse target-manager.js for cross-origin CDP errors.',
+            self.print_arr,
+        )
+        os.remove(temp_file_path)
 
     def test_run_lighthouse_checks_succesfully(self) -> None:
         class MockTask:
@@ -410,7 +596,10 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             subprocess,
             'Popen',
             mock_popen,
-            expected_args=((self.lighthouse_check_bash_command,),),
+            expected_args=(
+                (self.lighthouse_check_bash_command,),
+                (self.lighthouse_desktop_check_bash_command,),
+            ),
         )
 
         os.environ['ALL_LIGHTHOUSE_URLS'] = (
@@ -422,12 +611,10 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             'http://localhost:8181/, http://localhost:8181/about'
         )
         with self.print_swap, swap_popen:
-            run_lighthouse_tests.run_lighthouse_checks(
-                LIGHTHOUSE_MODE_PERFORMANCE
-            )
+            run_lighthouse_tests.run_lighthouse_checks()
 
         self.assertIn(
-            '\033[1m2 out of 3 lighthouse checks run, see '
+            '\033[1m2 out of 3 lighthouse pages run (mobile + desktop), see '
             'https://github.com/oppia/oppia/wiki/Partial-CI-Tests-Structure '
             'for more information.\033[0m',
             self.print_arr,
@@ -454,13 +641,14 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             subprocess,
             'Popen',
             mock_popen,
-            expected_args=((self.lighthouse_check_bash_command,),),
+            expected_args=(
+                (self.lighthouse_check_bash_command,),
+                (self.lighthouse_desktop_check_bash_command,),
+            ),
         )
 
         with self.print_swap, self.swap_sys_exit, swap_popen:
-            run_lighthouse_tests.run_lighthouse_checks(
-                LIGHTHOUSE_MODE_PERFORMANCE
-            )
+            run_lighthouse_tests.run_lighthouse_checks()
 
         self.assertIn('Return code: 1', self.print_arr)
         self.assertIn('ABC error.', self.print_arr)
@@ -469,58 +657,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             self.print_arr,
         )
 
-    def test_run_lighthouse_tests_in_accessibility_mode(self) -> None:
-        class MockTask:
-            returncode = 0
-
-            def communicate(  # pylint: disable=missing-docstring
-                self,
-            ) -> tuple[bytes, bytes]:
-                return (b'Task output', b'No error.')
-
-        def mock_popen(
-            *unused_args: str, **unused_kwargs: str
-        ) -> MockTask:  # pylint: disable=unused-argument
-            return MockTask()
-
-        swap_popen = self.swap(subprocess, 'Popen', mock_popen)
-        swap_run_lighthouse_tests = self.swap_with_checks(
-            run_lighthouse_tests,
-            'run_lighthouse_checks',
-            lambda *unused_args: None,
-            expected_args=[('accessibility',)],
-        )
-        swap_isdir = self.swap(os.path, 'isdir', lambda _: True)
-        swap_build = self.swap_with_checks(
-            build, 'main', lambda args: None, expected_kwargs=[{'args': []}]
-        )
-        swap_emulator_mode = self.swap(constants, 'EMULATOR_MODE', False)
-
-        with swap_popen, self.swap_webpack_compiler, swap_isdir, swap_build:
-            with self.swap_elasticsearch_dev_server, self.swap_dev_appserver:
-                with self.swap_ng_build, swap_emulator_mode, self.print_swap:
-                    with self.swap_redis_server, swap_run_lighthouse_tests:
-                        with self.lighthouse_pages_json_filepath_swap:
-                            run_lighthouse_tests.main(
-                                args=['--mode', 'accessibility']
-                            )
-                            expected_all_lighthouse_urls = ','.join(
-                                [
-                                    'http://localhost:8181/',
-                                    'http://localhost:8181/about',
-                                    'http://localhost:8181/contact',
-                                ]
-                            )
-                            self.assertEqual(
-                                os.environ['ALL_LIGHTHOUSE_URLS'],
-                                expected_all_lighthouse_urls,
-                            )
-
-        self.assertIn(
-            'Puppeteer script completed successfully.', self.print_arr
-        )
-
-    def test_run_lighthouse_tests_in_performance_mode(self) -> None:
+    def test_run_lighthouse_tests_successfully(self) -> None:
         class MockTask:
             returncode = 0
 
@@ -533,7 +670,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             run_lighthouse_tests,
             'run_lighthouse_checks',
             lambda *unused_args: None,
-            expected_args=[('performance',)],
+            expected_args=[()],
         )
 
         def mock_popen(
@@ -547,18 +684,16 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             build,
             'main',
             lambda args: None,
-            expected_kwargs=[{'args': ['--prod_env']}],
+            expected_kwargs=[{'args': []}, {'args': ['--prod_env']}],
         )
 
-        with self.print_swap, self.swap_webpack_compiler, swap_isdir:
+        with self.print_swap, swap_isdir:
             with self.swap_elasticsearch_dev_server, self.swap_dev_appserver:
                 with self.swap_redis_server, self.swap_cloud_datastore_emulator:
-                    with self.swap_firebase_auth_emulator, swap_build:
-                        with swap_popen, swap_run_lighthouse_tests:
+                    with self.swap_firebase_auth_emulator, self.swap_ng_build:
+                        with swap_build, swap_popen, swap_run_lighthouse_tests:
                             with self.lighthouse_pages_json_filepath_swap:
-                                run_lighthouse_tests.main(
-                                    args=['--mode', 'performance']
-                                )
+                                run_lighthouse_tests.main(args=[])
                                 expected_all_lighthouse_urls = ','.join(
                                     [
                                         'http://localhost:8181/',
@@ -571,6 +706,9 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
                                     expected_all_lighthouse_urls,
                                 )
 
+        self.assertIn(
+            'Building files in development mode for setup.', self.print_arr
+        )
         self.assertIn('Building files in production mode.', self.print_arr)
         self.assertIn(
             'Puppeteer script completed successfully.', self.print_arr
@@ -589,7 +727,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             run_lighthouse_tests,
             'run_lighthouse_checks',
             lambda *unused_args: None,
-            expected_args=[('performance',)],
+            expected_args=[()],
         )
 
         def mock_popen(
@@ -603,22 +741,17 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             build,
             'main',
             lambda args: None,
-            expected_kwargs=[{'args': ['--prod_env']}],
+            expected_kwargs=[{'args': []}, {'args': ['--prod_env']}],
         )
 
-        with self.print_swap, self.swap_webpack_compiler, swap_isdir:
+        with self.print_swap, swap_isdir:
             with self.swap_elasticsearch_dev_server, self.swap_dev_appserver:
                 with self.swap_redis_server, self.swap_cloud_datastore_emulator:
-                    with self.swap_firebase_auth_emulator, swap_build:
-                        with swap_popen, swap_run_lighthouse_tests:
+                    with self.swap_firebase_auth_emulator, self.swap_ng_build:
+                        with swap_build, swap_popen, swap_run_lighthouse_tests:
                             with self.lighthouse_pages_json_filepath_swap:
                                 run_lighthouse_tests.main(
-                                    args=[
-                                        '--mode',
-                                        'performance',
-                                        '--pages',
-                                        'splash, about',
-                                    ]
+                                    args=['--pages', 'splash, about']
                                 )
                                 expected_all_lighthouse_urls = ','.join(
                                     [
@@ -642,14 +775,15 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
                                     expected_lighthouse_urls_to_run,
                                 )
 
+        self.assertIn(
+            'Building files in development mode for setup.', self.print_arr
+        )
         self.assertIn('Building files in production mode.', self.print_arr)
         self.assertIn(
             'Puppeteer script completed successfully.', self.print_arr
         )
 
-    def test_run_lighthouse_tests_skipping_webpack_build_in_performance_mode(
-        self,
-    ) -> None:
+    def test_run_lighthouse_tests_with_skip_build(self) -> None:
         class MockTask:
             returncode = 0
 
@@ -662,7 +796,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             run_lighthouse_tests,
             'run_lighthouse_checks',
             lambda *unused_args: None,
-            expected_args=[('performance',)],
+            expected_args=[()],
         )
 
         def mock_popen(
@@ -672,27 +806,45 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
 
         swap_popen = self.swap(subprocess, 'Popen', mock_popen)
         swap_isdir = self.swap(os.path, 'isdir', lambda _: True)
-        swap_build = self.swap_with_checks(
-            build, 'main', lambda args: None, expected_kwargs=[{'args': []}]
+
+        def mock_build_main(args: list[str]) -> None:
+            raise AssertionError(
+                'build.main should not be called when --skip_build is used.'
+            )
+
+        swap_build = self.swap(build, 'main', mock_build_main)
+        swap_modify_constants = self.swap_with_checks(
+            common,
+            'modify_constants',
+            lambda **unused_kwargs: None,
+            expected_kwargs=[
+                {'prod_env': False, 'emulator_mode': True},
+                {'prod_env': True, 'emulator_mode': True},
+            ],
+        )
+        swap_write_hashes_json_file = self.swap_with_checks(
+            common,
+            'write_hashes_json_file',
+            lambda unused_file_hashes: None,
+            expected_args=[({},)],
         )
         swap_emulator_mode = self.swap(constants, 'EMULATOR_MODE', False)
-        with swap_popen, self.swap_webpack_compiler, swap_isdir, swap_build:
+        with swap_popen, swap_isdir, swap_build:
             with self.swap_elasticsearch_dev_server, self.swap_dev_appserver:
                 with self.swap_ng_build, swap_emulator_mode, self.print_swap:
-                    with self.swap_redis_server, swap_run_lighthouse_tests:
-                        with self.lighthouse_pages_json_filepath_swap:
-                            run_lighthouse_tests.main(
-                                args=[
-                                    '--mode',
-                                    'performance',
-                                    '--skip_build',
-                                    '--pages',
-                                    'splash',
-                                ]
-                            )
+                    with swap_modify_constants, swap_write_hashes_json_file:
+                        with self.swap_redis_server, swap_run_lighthouse_tests:
+                            with self.lighthouse_pages_json_filepath_swap:
+                                run_lighthouse_tests.main(
+                                    args=['--skip_build', '--pages', 'splash']
+                                )
 
         self.assertIn(
-            'Building files in production mode skipping webpack build.',
+            'Building files in development mode for setup skipping clean build.',
+            self.print_arr,
+        )
+        self.assertIn(
+            'Restoring production constants for Lighthouse checks.',
             self.print_arr,
         )
         self.assertIn(
@@ -713,25 +865,15 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
                 'exploration_id': '4',
             }
 
-        env = os.environ.copy()
-        env['PIP_NO_DEPS'] = 'True'
         # Set up pseudo-chrome path env variable.
         for path in common.CHROME_PATHS:
             if os.path.isfile(path):
-                env['CHROME_BIN'] = path
+                os.environ['CHROME_BIN'] = path
                 break
-        swap_dev_appserver = self.swap_with_checks(
+        swap_dev_appserver = self.swap(
             servers,
             'managed_dev_appserver',
             lambda *unused_args, **unused_kwargs: MockCompilerContextManager(),
-            expected_kwargs=[
-                {
-                    'port': GOOGLE_APP_ENGINE_PORT,
-                    'log_level': 'critical',
-                    'skip_sdk_update_check': True,
-                    'env': env,
-                }
-            ],
         )
         swap_run_puppeteer_script = self.swap_with_checks(
             run_lighthouse_tests,
@@ -743,7 +885,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
             run_lighthouse_tests,
             'run_lighthouse_checks',
             lambda *unused_args: None,
-            expected_args=[('performance',)],
+            expected_args=[()],
         )
 
         def mock_popen(
@@ -753,27 +895,42 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
 
         swap_popen = self.swap(subprocess, 'Popen', mock_popen)
         swap_isdir = self.swap(os.path, 'isdir', lambda _: True)
-        swap_build = self.swap_with_checks(
-            build, 'main', lambda args: None, expected_kwargs=[{'args': []}]
+
+        def mock_build_main(args: list[str]) -> None:
+            raise AssertionError(
+                'build.main should not be called when --skip_build is used.'
+            )
+
+        swap_build = self.swap(build, 'main', mock_build_main)
+        swap_modify_constants = self.swap_with_checks(
+            common,
+            'modify_constants',
+            lambda **unused_kwargs: None,
+            expected_kwargs=[
+                {'prod_env': False, 'emulator_mode': True},
+                {'prod_env': True, 'emulator_mode': True},
+            ],
+        )
+        swap_write_hashes_json_file = self.swap_with_checks(
+            common,
+            'write_hashes_json_file',
+            lambda unused_file_hashes: None,
+            expected_args=[({},)],
         )
         swap_emulator_mode = self.swap(constants, 'EMULATOR_MODE', False)
         swap_popen = self.swap(subprocess, 'Popen', mock_popen)
         swap_isdir = self.swap(os.path, 'isdir', lambda _: True)
 
-        with swap_popen, self.swap_webpack_compiler, swap_isdir, swap_build:
+        with swap_popen, swap_isdir, swap_build:
             with self.swap_elasticsearch_dev_server, swap_dev_appserver:
                 with self.swap_ng_build, swap_emulator_mode, self.print_swap:
-                    with self.swap_redis_server, swap_run_lighthouse_tests:
-                        with swap_run_puppeteer_script:
-                            with self.lighthouse_pages_json_filepath_swap:
-                                run_lighthouse_tests.main(
-                                    args=[
-                                        '--mode',
-                                        'performance',
-                                        '--skip_build',
-                                        '--record_screen',
-                                    ]
-                                )
+                    with swap_modify_constants, swap_write_hashes_json_file:
+                        with self.swap_redis_server, swap_run_lighthouse_tests:
+                            with swap_run_puppeteer_script:
+                                with self.lighthouse_pages_json_filepath_swap:
+                                    run_lighthouse_tests.main(
+                                        args=['--skip_build', '--record_screen']
+                                    )
 
     def test_run_lighthouse_puppeteer_script_creates_directory_when_not_exists(
         self,
@@ -812,7 +969,7 @@ class RunLighthouseTestsTests(test_utils.GenericTestBase):
                     'get_entity',
                     lambda line: ('topic', '123') if 'topic' in line else None,
                 ),
-                self.swap(common, 'NODE_BIN_PATH', '/usr/bin/node'),
+                self.swap(common, 'LIGHTHOUSE_NODE_BIN_PATH', '/usr/bin/node'),
                 self.print_swap,
             ):
                 entities = run_lighthouse_tests.run_lighthouse_puppeteer_script(

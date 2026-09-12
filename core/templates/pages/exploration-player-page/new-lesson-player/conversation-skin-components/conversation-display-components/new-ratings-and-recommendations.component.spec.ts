@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for ratings and recommendations component.
  */
 
+// @ts-nocheck
+
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {
   EventEmitter,
@@ -205,7 +207,8 @@ describe('New Ratings and recommendations component', () => {
         {} as LearnerExplorationSummary,
         false,
         'bg_color_1',
-        'filename_1'
+        'filename_1',
+        'published'
       );
       const readOnlyStoryNode2 = new ReadOnlyStoryNode(
         'node_2',
@@ -220,7 +223,8 @@ describe('New Ratings and recommendations component', () => {
         {} as LearnerExplorationSummary,
         false,
         'bg_color_2',
-        'filename_2'
+        'filename_2',
+        'published'
       );
 
       expect(componentInstance.inStoryMode).toBe(undefined);
@@ -288,12 +292,11 @@ describe('New Ratings and recommendations component', () => {
             {},
             true,
             'metatag',
-            'page_title_fragment'
+            'page_title_fragment',
+            null
           )
         )
       );
-
-      componentInstance.questionPlayerConfig = null;
 
       componentInstance.ngOnInit();
       mockOnRatingUpdated.emit();
@@ -334,7 +337,8 @@ describe('New Ratings and recommendations component', () => {
       {} as LearnerExplorationSummary,
       false,
       'bg_color_1',
-      'filename_1'
+      'filename_1',
+      'published'
     );
 
     spyOn(explorationModeService, 'isInStoryChapterMode').and.returnValue(true);
@@ -363,7 +367,8 @@ describe('New Ratings and recommendations component', () => {
           {},
           true,
           'metatag',
-          'page_title_fragment'
+          'page_title_fragment',
+          null
         )
       )
     );

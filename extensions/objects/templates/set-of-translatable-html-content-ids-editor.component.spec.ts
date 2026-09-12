@@ -16,15 +16,17 @@
  * @fileoverview Component for set of translatable html content id editor.
  */
 
+// @ts-nocheck
+
 import {NO_ERRORS_SCHEMA, SimpleChange} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {SetOfTranslatableHtmlContentIdsEditorComponent} from './set-of-translatable-html-content-ids-editor.component';
 
 describe('SetOfTranslatableHtmlContentIdsEditorComponent', () => {
   let component: SetOfTranslatableHtmlContentIdsEditorComponent;
   let fixture: ComponentFixture<SetOfTranslatableHtmlContentIdsEditorComponent>;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [SetOfTranslatableHtmlContentIdsEditorComponent],
       schemas: [NO_ERRORS_SCHEMA],

@@ -68,7 +68,6 @@ const CONFETTI_ANIMATION_DELAY_IN_MSECS = 2000;
 const STANDARD_ANIMATION_DURATION_IN_MSECS = 4000;
 const MILESTONE_SPECIFIC_COMPLETED_CHAPTER_COUNTS = [1, 5, 10, 25, 50];
 
-import './tutor-card.component.css';
 import {VoiceoverPlayerService} from '../../services/voiceover-player.service';
 
 @Component({

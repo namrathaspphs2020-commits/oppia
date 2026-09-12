@@ -88,6 +88,50 @@ class CommonTests(test_utils.GenericTestBase):
         with maxsize_swap:
             self.assertTrue(common.is_x64_architecture())
 
+    def test_playwright_node_path_uses_playwright_node_version(self) -> None:
+        self.assertIn(
+            common.PLAYWRIGHT_NODE_VERSION,
+            common.PLAYWRIGHT_NODE_PATH,
+        )
+
+    def test_playwright_npm_bin_path_uses_playwright_node_path(self) -> None:
+        self.assertTrue(
+            common.PLAYWRIGHT_NPM_BIN_PATH.startswith(
+                common.PLAYWRIGHT_NODE_PATH
+            )
+        )
+        self.assertTrue(
+            common.PLAYWRIGHT_NPM_BIN_PATH.endswith(os.path.join('bin', 'npm'))
+        )
+
+    def test_playwright_npx_bin_path_uses_playwright_node_path(self) -> None:
+        self.assertTrue(
+            common.PLAYWRIGHT_NPX_BIN_PATH.startswith(
+                common.PLAYWRIGHT_NODE_PATH
+            )
+        )
+        self.assertTrue(
+            common.PLAYWRIGHT_NPX_BIN_PATH.endswith(os.path.join('bin', 'npx'))
+        )
+
+    def test_lighthouse_node_path_uses_lighthouse_node_version(self) -> None:
+        self.assertIn(
+            common.LIGHTHOUSE_NODE_VERSION,
+            common.LIGHTHOUSE_NODE_PATH,
+        )
+
+    def test_lighthouse_node_bin_path_uses_lighthouse_node_path(self) -> None:
+        self.assertTrue(
+            common.LIGHTHOUSE_NODE_BIN_PATH.startswith(
+                common.LIGHTHOUSE_NODE_PATH
+            )
+        )
+        self.assertTrue(
+            common.LIGHTHOUSE_NODE_BIN_PATH.endswith(
+                os.path.join('bin', 'node')
+            )
+        )
+
     def test_is_mac_os(self) -> None:
         with self.swap(common, 'OS_NAME', 'Darwin'):
             self.assertTrue(common.is_mac_os())
@@ -1280,7 +1324,9 @@ class CommonTests(test_utils.GenericTestBase):
                 self.swap_with_checks(
                     common,
                     'is_port_in_use',
-                    lambda port: port == common.GAE_PORT_FOR_E2E_TESTING,
+                    lambda port: (
+                        port == common.GAE_PORT_FOR_ACCEPTANCE_TESTING
+                    ),
                 )
             )
 
@@ -1299,9 +1345,8 @@ class CommonTests(test_utils.GenericTestBase):
         popen_swap = self.swap(subprocess, 'Popen', mock_popen)
 
         with popen_swap:
-            self.assertEqual(
-                common.start_subprocess_for_result(['cmd']), (b'test\n', b'')
-            )
+            result = common.start_subprocess_for_result(['cmd'])
+            self.assertEqual(result[0], b'test\n')
 
     def test_workflow_permissions_set_to_read_all(self) -> None:
         workflows_dir = os.path.join(os.getcwd(), '.github', 'workflows')

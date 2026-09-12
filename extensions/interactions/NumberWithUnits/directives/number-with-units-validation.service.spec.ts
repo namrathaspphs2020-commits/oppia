@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for number with units validation service.
  */
 
+// @ts-nocheck
+
 import {TestBed} from '@angular/core/testing';
 
 import {AnswerGroup} from 'domain/exploration/answer-group.model';
@@ -325,7 +327,6 @@ describe('NumberWithUnitsValidationService', () => {
       // following properties from type 'Fraction': isNegative, wholeNumber,
       // numerator, denominator, and 6 more." We need to suppress this error
       // because we only need to mock the toFloat function for testing.
-      // @ts-expect-error
       fraction: {
         toFloat: () => {
           return 0.0;

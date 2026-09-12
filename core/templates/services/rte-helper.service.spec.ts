@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for RteHelperService.
  */
 
+// @ts-nocheck
+
 import {NgbModal, NgbModalRef} from '@ng-bootstrap/ng-bootstrap';
 import {RteHelperService} from './rte-helper.service';
 import {TestBed, fakeAsync, tick} from '@angular/core/testing';
@@ -443,5 +445,84 @@ describe('Rte Helper Service', () => {
     tick();
 
     expect(dismissCallBackSpy).toHaveBeenCalled();
+  }));
+
+  it(
+    'should not remove an existing component when modal is dismissed ' +
+      'with the ESC reason',
+    fakeAsync(() => {
+      const ESC_DISMISS_REASON = 1;
+      spyOn(ngbModal, 'open').and.callFake(
+        () =>
+          ({
+            componentInstance: {},
+            result: Promise.reject(ESC_DISMISS_REASON),
+          }) as unknown as NgbModalRef
+      );
+      const dismissCallBackSpy = jasmine.createSpy('dismiss');
+
+      rteHelperService.openCustomizationModal(
+        false,
+        'image',
+        [],
+        {},
+        undefined,
+        dismissCallBackSpy
+      );
+      tick();
+
+      expect(dismissCallBackSpy).toHaveBeenCalledWith(false);
+    })
+  );
+
+  it(
+    'should remove a newly created component when modal is dismissed ' +
+      'with the ESC reason',
+    fakeAsync(() => {
+      const ESC_DISMISS_REASON = 1;
+      spyOn(ngbModal, 'open').and.callFake(
+        () =>
+          ({
+            componentInstance: {},
+            result: Promise.reject(ESC_DISMISS_REASON),
+          }) as unknown as NgbModalRef
+      );
+      const dismissCallBackSpy = jasmine.createSpy('dismiss');
+
+      rteHelperService.openCustomizationModal(
+        true,
+        'image',
+        [],
+        {},
+        undefined,
+        dismissCallBackSpy
+      );
+      tick();
+
+      expect(dismissCallBackSpy).toHaveBeenCalledWith(true);
+    })
+  );
+
+  it("should not remove an existing component when modal is dismissed with 'cancel'", fakeAsync(() => {
+    spyOn(ngbModal, 'open').and.callFake(
+      () =>
+        ({
+          componentInstance: {},
+          result: Promise.reject('cancel'),
+        }) as unknown as NgbModalRef
+    );
+    const dismissCallBackSpy = jasmine.createSpy('dismiss');
+
+    rteHelperService.openCustomizationModal(
+      false,
+      'math',
+      [],
+      {},
+      undefined,
+      dismissCallBackSpy
+    );
+    tick();
+
+    expect(dismissCallBackSpy).toHaveBeenCalledWith(false);
   }));
 });

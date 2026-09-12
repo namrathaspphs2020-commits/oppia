@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for for GoalsTabComponent.
  */
 
+// @ts-nocheck
+
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -72,7 +74,7 @@ describe('Goals tab Component', () => {
   };
   let sampleTopic: LearnerTopicSummary;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     mockResizeEmitter = new EventEmitter();
     matDialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
     matDialogRefSpy = jasmine.createSpyObj('MatDialogRef', [

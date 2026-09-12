@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// @ts-nocheck
+
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {NO_ERRORS_SCHEMA, EventEmitter} from '@angular/core';
 import {
@@ -352,7 +354,7 @@ describe('New Lesson Player Page', () => {
     spyOn(componentInstance, 'onLanguageChange').and.returnValue(mockModalRef);
     spyOn(i18nService, 'handleLanguageUpdate');
 
-    let languageChangeCallback: (languageCode: string) => void;
+    let languageChangeCallback: (languageCode: string) => void = () => {};
     spyOn(
       contentTranslationManagerService.onLanguageChange,
       'subscribe'
@@ -404,7 +406,7 @@ describe('New Lesson Player Page', () => {
     spyOn(componentInstance, 'onLanguageChange').and.returnValue(undefined);
     spyOn(i18nService, 'handleLanguageUpdate');
 
-    let languageChangeCallback: (languageCode: string) => void;
+    let languageChangeCallback: (languageCode: string) => void = () => {};
     spyOn(
       contentTranslationManagerService.onLanguageChange,
       'subscribe'

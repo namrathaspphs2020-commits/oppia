@@ -16,20 +16,84 @@
  * @fileoverview Module for the CkEditor4 components.
  */
 
-import 'core-js/es7/reflect';
 import 'zone.js';
 
 import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
+import {FormsModule} from '@angular/forms';
 import {SubtopicsListComponent} from './subtopics-list/subtopics-list.component';
-import {StoriesListComponent} from './stories-list/topic-viewer-stories-list.component';
+import {StoriesListComponent} from './deprecations/stories-list/topic-viewer-stories-list.component';
+import {TopicStorySectionComponent} from './topic-story-section/topic-story-section.component';
+import {TopicLessonCardComponent} from './topic-story-section/topic-lesson-card/topic-lesson-card.component';
+import {LanguageSelectorComponent} from './topic-story-section/topic-lesson-card/language-selector.component';
+import {ModuleEndTestCardComponent} from './topic-story-section/module-end-test-card.component';
+import {ModuleCircleBadgeComponent} from './topic-story-section/module-circle-badge.component';
+import {ModuleNavigationComponent} from './topic-story-section/module-navigation.component';
+import {MasteryChallengeCardComponent} from './topic-story-section/mastery-challenge-card.component';
+import {MasteryChallengeLockedModalComponent} from './topic-story-section/mastery-challenge-locked-modal.component';
+import {ModuleSkipConfirmationModalComponent} from './topic-story-section/module-skip-confirmation-modal.component';
+import {ModuleMasteredModalComponent} from './topic-story-section/module-mastered-modal.component';
+import {TopicHeaderComponent} from './topic-header/topic-header.component';
+import {TopicViewerContentComponent} from './topic-viewer-content/topic-viewer-content.component';
+import {MatBottomSheetModule} from '@angular/material/bottom-sheet';
 import {MatCardModule} from '@angular/material/card';
 import {SharedComponentsModule} from 'components/shared-component.module';
 
 @NgModule({
-  imports: [CommonModule, MatCardModule, SharedComponentsModule],
-  declarations: [StoriesListComponent, SubtopicsListComponent],
-  entryComponents: [StoriesListComponent, SubtopicsListComponent],
-  exports: [StoriesListComponent, SubtopicsListComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatBottomSheetModule,
+    MatCardModule,
+    SharedComponentsModule,
+  ],
+  declarations: [
+    StoriesListComponent,
+    SubtopicsListComponent,
+    TopicStorySectionComponent,
+    TopicLessonCardComponent,
+    LanguageSelectorComponent,
+    ModuleEndTestCardComponent,
+    ModuleCircleBadgeComponent,
+    ModuleNavigationComponent,
+    MasteryChallengeCardComponent,
+    MasteryChallengeLockedModalComponent,
+    ModuleSkipConfirmationModalComponent,
+    ModuleMasteredModalComponent,
+    TopicHeaderComponent,
+    TopicViewerContentComponent,
+  ],
+  entryComponents: [
+    StoriesListComponent,
+    SubtopicsListComponent,
+    TopicStorySectionComponent,
+    TopicLessonCardComponent,
+    ModuleEndTestCardComponent,
+    LanguageSelectorComponent,
+    ModuleCircleBadgeComponent,
+    ModuleNavigationComponent,
+    MasteryChallengeCardComponent,
+    MasteryChallengeLockedModalComponent,
+    ModuleSkipConfirmationModalComponent,
+    ModuleMasteredModalComponent,
+    TopicHeaderComponent,
+    TopicViewerContentComponent,
+  ],
+  exports: [
+    StoriesListComponent,
+    SubtopicsListComponent,
+    TopicStorySectionComponent,
+    TopicLessonCardComponent,
+    LanguageSelectorComponent,
+    ModuleEndTestCardComponent,
+    ModuleCircleBadgeComponent,
+    ModuleNavigationComponent,
+    MasteryChallengeCardComponent,
+    MasteryChallengeLockedModalComponent,
+    ModuleSkipConfirmationModalComponent,
+    ModuleMasteredModalComponent,
+    TopicHeaderComponent,
+    TopicViewerContentComponent,
+  ],
 })
 export class TopicPlayerViewerCommonModule {}

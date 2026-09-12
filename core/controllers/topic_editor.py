@@ -197,6 +197,13 @@ class TopicEditorStoryHandler(
                         overdue_chapters_count += 1
 
             upcoming_chapters_expected_days.sort()
+            pending_nodes = story_fetchers.get_pending_and_all_nodes_in_story(
+                self.user_id, summary['id']
+            )['pending_nodes']
+            pending_node_titles = [node.title for node in pending_nodes]
+            completed_node_titles = utils.compute_list_difference(
+                summary['node_titles'], pending_node_titles
+            )
             updated_canonical_story_summary_dict = {
                 'id': summary['id'],
                 'title': summary['title'],
@@ -212,7 +219,7 @@ class TopicEditorStoryHandler(
                 'story_is_published': (
                     story_id_to_publication_status_map[summary['id']]
                 ),
-                'completed_node_titles': [],
+                'completed_node_titles': completed_node_titles,
                 'all_node_dicts': [node.to_dict() for node in nodes],
                 'total_chapters_count': total_chapters_count,
                 'published_chapters_count': published_chapters_count,
@@ -221,6 +228,7 @@ class TopicEditorStoryHandler(
                     upcoming_chapters_expected_days
                 ),
                 'overdue_chapters_count': overdue_chapters_count,
+                'arcs': [arc.to_dict() for arc in story.story_contents.arcs],
             }
             updated_canonical_story_summary_dicts.append(
                 updated_canonical_story_summary_dict
@@ -228,6 +236,13 @@ class TopicEditorStoryHandler(
 
         updated_additional_story_summary_dicts = []
         for summary in additional_story_summary_dicts:
+            pending_nodes = story_fetchers.get_pending_and_all_nodes_in_story(
+                self.user_id, summary['id']
+            )['pending_nodes']
+            pending_node_titles = [node.title for node in pending_nodes]
+            additional_completed_node_titles = utils.compute_list_difference(
+                summary['node_titles'], pending_node_titles
+            )
             updated_additional_story_summary_dict = {
                 'id': summary['id'],
                 'title': summary['title'],
@@ -243,7 +258,7 @@ class TopicEditorStoryHandler(
                 'story_is_published': (
                     story_id_to_publication_status_map[summary['id']]
                 ),
-                'completed_node_titles': [],
+                'completed_node_titles': additional_completed_node_titles,
                 'all_node_dicts': [],
             }
             updated_additional_story_summary_dicts.append(
@@ -396,7 +411,7 @@ class EditableSubtopicPageDataHandler(
                 'The subtopic page with the given id doesn\'t exist.'
             )
 
-        self.values.update({'subtopic_page': subtopic_page.to_dict()})
+        self.values.update({'subtopic_page_dict': subtopic_page.to_dict()})
 
         self.render_json(self.values)
 
@@ -450,7 +465,7 @@ class EditableStudyGuideDataHandler(
                 'The study guide with the given id doesn\'t exist.'
             )
 
-        self.values.update({'study_guide': study_guide.to_dict()})
+        self.values.update({'study_guide_dict': study_guide.to_dict()})
 
         self.render_json(self.values)
 
@@ -814,8 +829,13 @@ class TopicRightsHandler(base.BaseHandler[Dict[str, str], Dict[str, str]]):
             in user_actions_info.actions
         )
 
+        can_edit_question = topic_services.check_can_edit_question(
+            user_actions_info, topic_rights
+        )
+
         self.values.update(
             {
+                'can_edit_question': can_edit_question,
                 'can_edit_topic': can_edit_topic,
                 'published': topic_rights.topic_is_published,
                 'can_publish_topic': can_publish_topic,
@@ -981,7 +1001,7 @@ class TopicUrlFragmentHandler(base.BaseHandler[Dict[str, str], Dict[str, str]]):
     }
     HANDLER_ARGS_SCHEMAS: Dict[str, Dict[str, str]] = {'GET': {}}
 
-    @acl_decorators.can_create_topic
+    @acl_decorators.can_access_topics_and_skills_dashboard
     def get(self, topic_url_fragment: str) -> None:
         """Handler that receives a topic url fragment and checks whether
         a topic with the same url fragment exists.

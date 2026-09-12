@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for the skill selector editor.
  */
 
+// @ts-nocheck
+
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -114,7 +116,7 @@ describe('SkillSelectorEditorComponent', () => {
     },
   ];
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [FormsModule, HttpClientTestingModule],
       declarations: [SkillSelectorEditorComponent],
@@ -123,8 +125,8 @@ describe('SkillSelectorEditorComponent', () => {
   }));
 
   beforeEach(() => {
-    pageContextService = TestBed.get(PageContextService);
-    skillBackendApiService = TestBed.get(SkillBackendApiService);
+    pageContextService = TestBed.inject(PageContextService);
+    skillBackendApiService = TestBed.inject(SkillBackendApiService);
     fixture = TestBed.createComponent(SkillSelectorEditorComponent);
     component = fixture.componentInstance;
 

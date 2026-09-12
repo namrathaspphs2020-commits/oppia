@@ -51,6 +51,20 @@ CURRENT_PYTHON_BIN = sys.executable
 # Node version.
 NODE_VERSION = '16.13.0'
 
+# Dedicated Node version for Playwright acceptance tests. This is intentionally
+# isolated from NODE_VERSION so existing frontend tooling remains unchanged.
+PLAYWRIGHT_NODE_VERSION = '20.11.1'
+
+# Dedicated Node version for Lighthouse tests. This is intentionally isolated
+# from NODE_VERSION so existing frontend tooling remains unchanged, because
+# Lighthouse 12+ requires Node 18.20 or newer. It matches
+# PLAYWRIGHT_NODE_VERSION so that the same Node 20 toolchain already installed
+# for the Playwright acceptance tests can be reused. This Node version is also
+# used to run the repo-wide `yarn install` (see install_third_party_libs.py),
+# so that the engines requirement of Lighthouse is satisfied at install time
+# without an --ignore-engines flag.
+LIGHTHOUSE_NODE_VERSION = PLAYWRIGHT_NODE_VERSION
+
 # NB: Please ensure that the version is consistent with the version in .yarnrc.
 YARN_VERSION = '1.22.15'
 
@@ -85,13 +99,16 @@ GOOGLE_APP_ENGINE_SDK_HOME = os.path.join(
     GOOGLE_CLOUD_SDK_HOME, 'platform', 'google_appengine'
 )
 GOOGLE_CLOUD_SDK_BIN = os.path.join(GOOGLE_CLOUD_SDK_HOME, 'bin')
-WEBPACK_BIN_PATH = os.path.join(
-    CURR_DIR, 'node_modules', 'webpack', 'bin', 'webpack.js'
-)
 NG_BIN_PATH = os.path.join(CURR_DIR, 'node_modules', '.bin', 'ng')
 DEV_APPSERVER_PATH = os.path.join(GOOGLE_CLOUD_SDK_BIN, 'dev_appserver.py')
 GCLOUD_PATH = os.path.join(GOOGLE_CLOUD_SDK_BIN, 'gcloud')
 NODE_PATH = os.path.join(OPPIA_TOOLS_DIR, 'node-%s' % NODE_VERSION)
+PLAYWRIGHT_NODE_PATH = os.path.join(
+    OPPIA_TOOLS_DIR, 'node-%s' % PLAYWRIGHT_NODE_VERSION
+)
+LIGHTHOUSE_NODE_PATH = os.path.join(
+    OPPIA_TOOLS_DIR, 'node-%s' % LIGHTHOUSE_NODE_VERSION
+)
 NODE_MODULES_PATH = os.path.join(CURR_DIR, 'node_modules')
 FRONTEND_DIR = os.path.join(CURR_DIR, 'core', 'templates')
 YARN_PATH = os.path.join(OPPIA_TOOLS_DIR, 'yarn-%s' % YARN_VERSION)
@@ -152,38 +169,11 @@ COMPILED_REQUIREMENTS_FILE_PATH = os.path.join(CURR_DIR, 'requirements.txt')
 # will be identical.
 REQUIREMENTS_FILE_PATH = os.path.join(CURR_DIR, 'requirements.in')
 
-WEBPACK_DEV_CONFIG = 'webpack.dev.config.ts'
-WEBPACK_DEV_SOURCE_MAPS_CONFIG = 'webpack.dev.sourcemap.config.ts'
-WEBPACK_PROD_CONFIG = 'webpack.prod.config.ts'
-WEBPACK_PROD_SOURCE_MAPS_CONFIG = 'webpack.prod.sourcemap.config.ts'
 ANALYTICS_CONSTANTS_FILE_PATH = os.path.join(
     'assets', 'analytics-constants.json'
 )
 
 PORTSERVER_SOCKET_FILEPATH = os.path.join(os.getcwd(), 'portserver.socket')
-
-WEBDRIVER_HOME_PATH = os.path.join(NODE_MODULES_PATH, 'webdriver-manager')
-WEBDRIVER_MANAGER_BIN_PATH = os.path.join(
-    WEBDRIVER_HOME_PATH, 'bin', 'webdriver-manager'
-)
-WEBDRIVER_PROVIDER_PATH = os.path.join(
-    WEBDRIVER_HOME_PATH, 'dist', 'lib', 'provider'
-)
-GECKO_PROVIDER_FILE_PATH = os.path.join(
-    WEBDRIVER_PROVIDER_PATH, 'geckodriver.js'
-)
-CHROME_PROVIDER_FILE_PATH = os.path.join(
-    WEBDRIVER_PROVIDER_PATH, 'chromedriver.js'
-)
-
-PROTRACTOR_BIN_PATH = os.path.join(
-    NODE_MODULES_PATH, 'protractor', 'bin', 'protractor'
-)
-PROTRACTOR_CONFIG_FILE_PATH = os.path.join(
-    'core', 'tests', 'protractor.conf.js'
-)
-WEBDRIVERIO_CONFIG_FILE_PATH = os.path.join('core', 'tests', 'wdio.conf.js')
-NODEMODULES_WDIO_BIN_PATH = os.path.join(NODE_MODULES_PATH, '.bin', 'wdio')
 HASHES_JSON_FILEPATH = os.path.join('assets', 'hashes.json')
 
 DIRS_TO_ADD_TO_SYS_PATH = [
@@ -213,10 +203,10 @@ ACCEPTANCE_TEST_CONFIG_FILE_PATH = os.path.join(
     CURR_DIR, 'core', 'tests', 'ci-test-suite-configs', 'acceptance.json'
 )
 
-GAE_PORT_FOR_E2E_TESTING: Final = 8181
+GAE_PORT_FOR_ACCEPTANCE_TESTING: Final = 8181
 ELASTICSEARCH_SERVER_PORT: Final = 9200
-PORTS_USED_BY_OPPIA_PROCESSES_IN_LOCAL_E2E_TESTING: Final = [
-    GAE_PORT_FOR_E2E_TESTING,
+PORTS_USED_BY_OPPIA_PROCESSES_IN_LOCAL_ACCEPTANCE_TESTING: Final = [
+    GAE_PORT_FOR_ACCEPTANCE_TESTING,
     ELASTICSEARCH_SERVER_PORT,
 ]
 
@@ -244,6 +234,11 @@ def is_x64_architecture() -> bool:
 
 NODE_BIN_PATH = os.path.join(NODE_PATH, 'bin', 'node')
 NPX_BIN_PATH = os.path.join(NODE_PATH, 'bin', 'npx')
+
+# Binaries for running Playwright with a newer Node runtime only.
+PLAYWRIGHT_NPM_BIN_PATH = os.path.join(PLAYWRIGHT_NODE_PATH, 'bin', 'npm')
+PLAYWRIGHT_NPX_BIN_PATH = os.path.join(PLAYWRIGHT_NODE_PATH, 'bin', 'npx')
+LIGHTHOUSE_NODE_BIN_PATH = os.path.join(LIGHTHOUSE_NODE_PATH, 'bin', 'node')
 
 # Add path for node which is required by the node_modules.
 os.environ['PATH'] = os.pathsep.join(
@@ -1045,11 +1040,11 @@ def is_oppia_server_already_running() -> bool:
     Returns:
         bool. Whether there is a running Oppia instance.
     """
-    for port in PORTS_USED_BY_OPPIA_PROCESSES_IN_LOCAL_E2E_TESTING:
+    for port in PORTS_USED_BY_OPPIA_PROCESSES_IN_LOCAL_ACCEPTANCE_TESTING:
         if is_port_in_use(port):
             print(
                 'There is already a server running on localhost:%s. '
-                'Please terminate it before running the end-to-end tests. '
+                'Please terminate it before running the acceptance tests. '
                 'Exiting.' % port
             )
             return True

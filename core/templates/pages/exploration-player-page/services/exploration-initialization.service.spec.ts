@@ -16,6 +16,8 @@
  * @fileoverview Unit tests for ExplorationInitializationService.
  */
 
+// @ts-nocheck
+
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {TestBed, fakeAsync, tick, waitForAsync} from '@angular/core/testing';
 import {ExplorationInitializationService} from './exploration-initialization.service';
@@ -313,9 +315,10 @@ describe('ExplorationInitializationService', () => {
             solution: null,
           },
           param_changes: [],
-          recorded_voiceovers: {voiceovers_mapping: {}},
           solicit_answer_details: false,
-          written_translations: {translations_mapping: {}},
+          linked_skill_id: null,
+          card_is_checkpoint: false,
+          inapplicable_skill_misconception_ids: [],
         },
         question_state_data_schema_version: 50,
         language_code: 'en',

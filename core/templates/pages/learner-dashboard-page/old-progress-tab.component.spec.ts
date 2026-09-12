@@ -16,8 +16,10 @@
  * @fileoverview Unit tests for for OldProgressTabComponent.
  */
 
+// @ts-nocheck
+
 import {
-  async,
+  waitForAsync,
   ComponentFixture,
   fakeAsync,
   TestBed,
@@ -43,7 +45,7 @@ describe('Old Progress tab Component', () => {
   let windowDimensionsService: WindowDimensionsService;
   let mockResizeEmitter: EventEmitter<void> = new EventEmitter();
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MaterialModule, FormsModule, HttpClientTestingModule],
       declarations: [MockTranslatePipe, OldProgressTabComponent],

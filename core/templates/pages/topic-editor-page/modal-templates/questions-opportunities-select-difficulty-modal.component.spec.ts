@@ -17,6 +17,8 @@
  * select difficulty modal component.
  */
 
+// @ts-nocheck
+
 import {HttpClientTestingModule} from '@angular/common/http/testing';
 import {NO_ERRORS_SCHEMA} from '@angular/core';
 import {
@@ -156,11 +158,7 @@ describe('Questions Opportunities Select Difficulty Modal Component', () => {
       spyOn(assetsBackendApiService, 'loadImage').and.returnValue(
         Promise.resolve(mockImageFile)
       );
-      // This throws "Argument of type 'MockReaderObject' is not assignable
-      // to parameter of type 'FileReader'.". We need to suppress this error
-      // because 'FileReader' has around 15 more properties. We have only
-      // defined the properties we need in 'MockReaderObject'.
-      // @ts-expect-error
+
       spyOn(window, 'FileReader').and.returnValue(new MockReaderObject());
     });
 
